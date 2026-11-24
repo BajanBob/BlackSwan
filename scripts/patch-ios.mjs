@@ -1,0 +1,9 @@
+// Runs after `cap add ios`.
+import fs from 'node:fs';
+import plist from 'plist';
+const p = 'ios/App/App/Info.plist';
+const info = plist.parse(fs.readFileSync(p, 'utf8'));
+info.ITSAppUsesNonExemptEncryption = false;
+info.NSFaceIDUsageDescription = 'BlackSwan uses Face ID to unlock the app and your password vault.';
+fs.writeFileSync(p, plist.build(info));
+console.log('iOS project patched for BlackSwan (sign with your Apple Developer account to install)');

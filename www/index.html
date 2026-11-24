@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070d14">
+  <title>BlackSwan</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+  <script type="module" src="console.js"></script>
+</head>
+<body>
+  <header class="top">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6 52 13v17c0 13-8.6 23-20 28C20.6 53 12 43 12 30V13z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M20 41c5 4 17 4 24-3-4 .6-8 0-10-3 2-4 2-9-2-12-3-2-7 0-7 3.5 0 2 2 3 3.5 2-1.4 2-.7 6 2 8-4 2-7 2.6-10.5 4.5z" fill="currentColor"/><circle cx="25.6" cy="25.2" r="1.3" fill="var(--risk)"/></svg>
+    <div><h1>BlackSwan</h1><p class="sub">Alert and defence system · built on GuardYourPhone</p></div>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <button type="button" data-t="phone" aria-current="page">Phone</button>
+    <button type="button" data-t="links">Links</button>
+    <button type="button" data-t="msg">Messages</button>
+    <button type="button" data-t="net">Network</button>
+    <button type="button" data-t="guard">Guard</button>
+    <button type="button" data-t="scams">Scams</button>
+    <button type="button" data-t="alerts">Alerts <b id="al-count"></b></button>
+    <button type="button" data-t="desk">Desktop</button>
+  </nav>
+  <p id="demo" class="banner" hidden>You’re seeing example phone results. Install BlackSwan on your phone for a real check; the link, message, network and password tools work here too.</p>
+  <div id="lock" class="lock" hidden>
+    <div class="card"><h2>BlackSwan is locked</h2><p class="muted small" id="lock-info">Enter your passphrase.</p>
+      <input class="in" id="lock-pass" type="password" autocomplete="current-password" aria-label="Passphrase">
+      <button class="btn primary" id="lock-go" type="button" style="margin-top:10px;width:100%">Unlock</button></div>
+  </div>
+
+  <main>
+    <section class="panel" id="p-phone">
+    <div id="alert" class="alert" role="alert" hidden></div>
+    <section class="card score-card">
+      <div class="ring" id="ring"><span id="score">–</span><small>out of 100</small></div>
+      <div class="score-text">
+        <h2 id="verdict">Not checked yet</h2>
+        <p id="checked" class="muted">Tap “Check my phone” to start. BlackSwan only reads settings; it never changes anything without asking you.</p>
+        <button id="run" class="btn primary" type="button">Check my phone</button>
+      </div>
+    </section>
+
+    <section class="card" id="update-card" hidden>
+      <h2>Software updates</h2>
+      <dl id="update-facts" class="facts"></dl>
+      <p id="update-verdict" class="big"></p>
+      <ol id="update-steps" class="numbered"></ol>
+      <button id="update-btn" class="btn" type="button">Check for updates</button>
+    </section>
+
+    <section class="card">
+      <h2>Restart reminders</h2>
+      <p id="uptime" class="big"></p>
+      <p class="muted">Restarting clears spyware and other bad code that hides only in the phone’s memory, and installs waiting updates. Security agencies advise restarting regularly. Apps aren’t allowed to restart a phone by themselves, so BlackSwan reminds you at <strong>5:00 am</strong> and <strong>7:00 pm</strong> every day.</p>
+      <label class="switch"><input id="remind" type="checkbox"> <span>Remind me at 5 am and 7 pm</span></label>
+      <p id="remind-msg" class="muted small"></p>
+      <details><summary>How to restart</summary>
+        <ul class="steps">
+          <li><strong>Most Android phones:</strong> press and hold the power button (or power + volume up on newer Samsung and Pixel phones), then tap <em>Restart</em>.</li>
+          <li><strong>iPhone:</strong> press and hold the side button and either volume button, slide to power off, wait 30 seconds, then hold the side button until the Apple logo appears.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>What BlackSwan found</h2>
+      <ul id="findings" class="findings"><li class="muted">Run a check to see results.</li></ul>
+    </section>
+
+    <section class="card" id="protect-card">
+      <h2>Protection against spyware and snooping</h2>
+      <p class="muted small">Zero-click attacks (like the LANDFALL spyware sent as pictures over WhatsApp), “man-in-the-middle” snooping on your internet, and fake mobile towers that grab your phone’s identity (IMSI and IMEI). BlackSwan checks what it can; tick off the rest as you do them.</p>
+      <ul id="auto-checks" class="findings"></ul>
+      <p id="protect-progress" class="big"></p>
+      <div id="protect-list"></div>
+    </section>
+
+    <section class="card" id="chips-card">
+      <h2>Processors and firmware</h2>
+      <p class="muted small">The application processor runs Android and your apps. The baseband (modem) processor runs the mobile radio with its own firmware, which apps can’t inspect directly; BlackSwan shows its firmware version so you can check it’s up to date.</p>
+      <dl id="chips" class="facts"><dt>–</dt><dd>Run a check</dd></dl>
+    </section>
+
+    <section class="card" id="apps-card">
+      <h2>Apps with powerful access</h2>
+      <p class="muted small">Apps that can read your screen, your notifications or texts, control the phone, or that weren’t installed from an app store. Most are fine; remove any you don’t recognise.</p>
+      <ul id="apps" class="apps"><li class="muted">Run a check to see results.</li></ul>
+    </section>
+
+    <section class="card" id="codes-card">
+      <h2>Phone service codes</h2>
+      <p class="muted small">Codes you type into the <strong>Phone dialler</strong> to verify your phone and check if your calls are being diverted. <strong>Tap a code to copy it</strong>, then paste it into the keypad. These are for Android / Samsung; on an iPhone only <span class="code" data-copy="*#06#" data-tip="IMEI and serial — works on every phone">*#06#</span> works.</p>
+      <ul class="codes">
+        <li class="coderow"><button class="code" type="button" data-copy="*#06#" data-tip="IMEI and serial number">*#06#</button><span><b>IMEI &amp; serial.</b> Check it at samsung.com/support/imei — it must match your model. Also use it to report a lost or stolen phone.</span></li>
+        <li class="coderow"><button class="code" type="button" data-copy="*#1234#" data-tip="Firmware AP / CP / CSC versions">*#1234#</button><span><b>Firmware (AP / CP / CSC).</b> Confirms a genuine build and your region. A fake phone shows gibberish or nothing.</span></li>
+        <li class="coderow"><button class="code" type="button" data-copy="*#0*#" data-tip="Hardware self-test menu">*#0*#</button><span><b>Hardware test menu.</b> A real Samsung opens a full screen / sensor test; a counterfeit usually can’t. Just exit when done.</span></li>
+        <li class="coderow"><button class="code" type="button" data-copy="*#21#" data-tip="Is call forwarding switched on?">*#21#</button><span><b>Call-forwarding check.</b> Shows if your calls, texts or data are being diverted (a SIM-swap trick). It does <b>not</b> detect spyware.</span></li>
+        <li class="coderow"><button class="code" type="button" data-copy="*#62#" data-tip="Where calls go when unreachable">*#62#</button><span><b>Unreachable forwarding.</b> The number used when your phone is off — should be your voicemail, not a strange number.</span></li>
+        <li class="coderow"><button class="code" type="button" data-copy="##002#" data-tip="Cancel all call forwarding">##002#</button><span><b>Cancel all forwarding.</b> Clears any diversion you find. Safe for normal use.</span></li>
+      </ul>
+      <div class="finding risk" style="margin-top:10px"><div>
+        <p style="margin:0;color:var(--fg)"><b>Never dial a code you don’t recognise.</b></p>
+        <p>Some codes wipe the phone instantly with no warning (for example <span class="nono">*2767*3855#</span> or <span class="nono">*#*#7780#*#*</span>). Never enter a code someone messages you or a website tells you to, and never tap a <span class="nono">tel:</span> link from a stranger.</p>
+      </div></div>
+      <p class="muted small">No dial code can detect modern spyware — anyone claiming a “secret code” shows if you’re hacked is wrong. These codes <strong>verify</strong> your phone; the checks above <strong>protect</strong> it.</p>
+    </section>
+
+    <section class="card" id="ios-card" hidden>
+      <h2>iPhone checklist</h2>
+      <p class="muted small">Apple doesn’t let apps look at other apps or security settings, so tick these off yourself.</p>
+      <ul id="ios-list" class="checklist"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Your report</h2>
+      <p class="muted small">Copy the report to send to someone who helps you with your phone. It stays on your phone until you share it.</p>
+      <button id="copy" class="btn" type="button">Copy report</button>
+      <textarea id="report" readonly rows="6" hidden></textarea>
+    </section>
+      </section>
+
+    <section class="panel" id="p-links" hidden>
+      <section class="card">
+        <h2>Scan a link before you open it</h2>
+        <p class="muted small">Paste a link from an email, text, chat, advert or QR code. BlackSwan checks lookalike brands and typosquats, hidden characters, redirect chains, shorteners, raw-IP hosts, abused domain endings, free hosting and risky downloads, then gives a phishing probability. Nothing is sent anywhere.</p>
+        <label class="lbl" for="url">Link</label>
+        <input class="in" id="url" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…">
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="url-scan" type="button">Scan link</button><button class="btn" id="url-paste" type="button">Try a sample</button></div>
+      </section>
+      <section class="card score-card" id="url-result" hidden>
+        <div class="ring" id="url-ring"><span id="url-score">–</span><small>% risk</small></div>
+        <div class="score-text"><h2 id="url-verdict"></h2><p class="muted small" id="url-host"></p></div>
+      </section>
+      <section class="card" id="url-find-card" hidden><h2>Why</h2><ul class="findings" id="url-find"></ul></section>
+    </section>
+
+    <section class="panel" id="p-msg" hidden>
+      <section class="card">
+        <h2>Scan a message, email or pop-up</h2>
+        <p class="muted small">Detects remote-access takeovers, “paste and run” tricks (ClickFix), one-time-code theft, gift-card and crypto demands, invoice and bank-detail fraud, MFA-fatigue prompts, sextortion, delivery and investment scams — and scans every link inside.</p>
+        <label class="lbl" for="msg">Message text</label>
+        <textarea class="in" id="msg" rows="7"></textarea>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="msg-scan" type="button">Scan message</button><button class="btn" id="msg-paste" type="button">Try a sample</button></div>
+      </section>
+      <section class="card score-card" id="msg-result" hidden>
+        <div class="ring" id="msg-ring"><span id="msg-score">–</span><small>% scam</small></div>
+        <div class="score-text"><h2 id="msg-verdict"></h2><p class="muted small" id="msg-host"></p></div>
+      </section>
+      <section class="card" id="msg-find-card" hidden><h2>Why</h2><ul class="findings" id="msg-find"></ul></section>
+    </section>
+
+    <section class="panel" id="p-net" hidden>
+      <section class="card" id="watch-card">
+        <h2>Intrusion monitor</h2>
+        <p class="muted small">Learns what is normal for you — your towers, Wi-Fi access points, routers and DNS — and warns when something changes the way fake towers, evil-twin hotspots and man-in-the-middle attacks do. Run it now and then, especially in hotels, airports and cafés.</p>
+        <button class="btn primary" id="watch-run" type="button">Scan networks now</button>
+        <p class="muted small" id="watch-when"></p>
+        <ul class="findings" id="watch-find"></ul>
+      </section>
+
+
+    <section class="card" id="net-card">
+      <h2>Mobile network</h2>
+      <p class="muted small">Checks which network your phone is using. 2G is old and its encryption is weak; fake mobile towers (“IMSI catchers”) often force phones down to 2G.</p>
+      <button id="net" class="btn" type="button">Check mobile network</button>
+      <div id="network"></div>
+    </section>
+      <section class="card">
+        <h2>Computer on the same network? Check for ARP spoofing</h2>
+        <p class="muted small">On a laptop or desktop, open a terminal, run <span class="code">arp -a</span> and paste the result. One device claiming several addresses — especially your router’s — means someone is in the middle.</p>
+        <label class="lbl" for="gw">Router address (optional)</label><input class="in" id="gw" type="text" placeholder="192.168.1.1" inputmode="decimal">
+        <label class="lbl" for="arp">arp -a output</label><textarea class="in" id="arp" rows="5"></textarea>
+        <div class="row" style="margin-top:10px"><button class="btn" id="arp-run" type="button">Analyse</button></div>
+        <ul class="findings" id="arp-find" style="margin-top:10px"></ul>
+      </section>
+      <section class="card">
+        <h2>Certificate pinning</h2>
+        <p class="muted small">On a network you trust, copy a site’s SHA-256 certificate fingerprint (padlock → certificate) and pin it. On public Wi-Fi, paste it again: a different certificate means stop and check. Sites renew certificates every few months, so a mismatch is a warning, not proof.</p>
+        <label class="lbl" for="pin-host">Site</label><input class="in" id="pin-host" type="text" placeholder="yourbank.com" autocapitalize="off">
+        <label class="lbl" for="pin-fp">SHA-256 fingerprint</label><input class="in" id="pin-fp" type="text" placeholder="AB:CD:…" autocapitalize="off">
+        <div class="row" style="margin-top:10px"><button class="btn" id="pin-save" type="button">Pin it</button><button class="btn primary" id="pin-check" type="button">Compare</button></div>
+        <ul class="findings" id="pin-find" style="margin-top:10px"></ul>
+      </section>
+    </section>
+
+    <section class="panel" id="p-guard" hidden>
+      <section class="card">
+        <h2>Random password generator</h2>
+        <div class="pw" id="pw" aria-live="polite">–</div>
+        <div class="meter"><i id="pw-bar"></i></div>
+        <p class="muted small" id="pw-info"></p>
+        <div class="opts">
+          <label class="switch"><input type="checkbox" id="o-u" checked><span>Capitals</span></label>
+          <label class="switch"><input type="checkbox" id="o-l" checked><span>Small letters</span></label>
+          <label class="switch"><input type="checkbox" id="o-d"><span>Digits</span></label>
+          <label class="switch"><input type="checkbox" id="o-s"><span>Symbols</span></label>
+          <label class="switch"><input type="checkbox" id="o-a" checked><span>No look-alikes (I l 1 O 0)</span></label>
+        </div>
+        <div class="row">
+          <label class="lbl inline">Length <input class="in short" id="len" type="number" min="8" max="64" value="15"></label>
+          <label class="lbl inline">New password <select class="in short" id="rot"><option value="0">only when I tap</option><option value="1">every minute</option><option value="5">every 5 minutes</option><option value="15">every 15 minutes</option><option value="60">every hour</option><option value="1440">every day</option></select></label>
+        </div>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="gen" type="button">New password</button><button class="btn" id="pw-copy" type="button">Copy</button></div>
+        <p class="muted small" id="rot-info"></p>
+      </section>
+      <section class="card">
+        <h2>Fingerprint vault</h2>
+        <p class="muted small" id="vault-info">Save a generated password inside your phone’s secure hardware (Android Keystore / iPhone Keychain). Showing it again needs your fingerprint or face.</p>
+        <label class="lbl" for="vault-label">What is it for?</label><input class="in" id="vault-label" type="text" placeholder="Email account">
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="vault-save" type="button">Save current password behind fingerprint</button></div>
+        <ul class="findings" id="vault-list" style="margin-top:10px"></ul>
+      </section>
+      <section class="card">
+        <h2>Anti brute-force lock</h2>
+        <p class="big" id="gate-state">Not set up</p>
+        <p class="muted small" id="gate-info">Set a passphrase to lock BlackSwan. After 3 wrong tries the wait doubles each time (30 s up to 1 hour). Failure bursts are tested against your normal typo rate with a Poisson model and raised as an attack alert. With a fingerprint enrolled, the right passphrase alone is not enough.</p>
+        <label class="lbl" for="g-pass">Passphrase</label><input class="in" id="g-pass" type="password" autocomplete="new-password">
+        <div class="row" style="margin-top:10px"><button class="btn" id="g-set" type="button">Set passphrase</button><button class="btn" id="g-use" type="button">Use generated</button><button class="btn primary" id="g-try" type="button">Test unlock</button></div>
+        <label class="switch"><input type="checkbox" id="g-applock"><span>Lock BlackSwan when it opens</span></label>
+        <label class="switch"><input type="checkbox" id="g-wipe"><span>Erase the vault after 10 failed unlocks in a row</span></label>
+        <h3>Fingerprint second factor</h3>
+        <p class="muted small" id="fp-info"></p>
+        <div class="row"><button class="btn" id="fp-enrol" type="button">Turn on fingerprint</button><button class="btn" id="fp-test" type="button">Test</button><button class="btn" id="fp-off" type="button">Turn off</button></div>
+      </section>
+    </section>
+
+    <section class="panel" id="p-scams" hidden>
+      <section class="card"><label class="lbl" for="scam-q">Search the scam library</label><input class="in" id="scam-q" type="search" placeholder="remote access, code, invoice, crypto…"></section>
+      <div id="scam-list" class="scams"></div>
+    </section>
+
+    <section class="panel" id="p-alerts" hidden>
+      <section class="card">
+        <div class="row spread"><h2>Alert log</h2><div class="row"><button class="btn sm" id="al-export" type="button">Export for MATLAB</button><button class="btn sm" id="al-clear" type="button">Clear</button></div></div>
+        <ul class="findings" id="al-list"></ul>
+        <textarea id="al-json" class="in mono" rows="6" readonly hidden></textarea>
+      </section>
+    </section>
+
+    <section class="panel" id="p-desk" hidden>
+      <section class="card">
+        <h2>BlackSwan host agent for Windows, macOS and Linux</h2>
+        <p class="muted small">A phone app can’t look inside your computer, so this companion script does the deep checks there: ARP spoofing and router changes, DNS hijacking (compared with DNS-over-HTTPS), TLS interception, hosts-file and proxy tampering, and remote-access tools scammers install. Standard Python 3, read-only, writes a JSON report.</p>
+        <ol class="numbered small"><li>Save it as <span class="code">blackswan_agent.py</span>.</li><li>On a network you trust: <span class="code">python3 blackswan_agent.py --baseline</span></li><li>Later, anywhere: <span class="code">python3 blackswan_agent.py</span></li></ol>
+        <button class="btn primary" id="ag-copy" type="button">Copy script</button>
+        <pre id="ag-src" class="mono"></pre>
+      </section>
+      <section class="card">
+        <h2>Analyse in MATLAB</h2>
+        <p class="muted small">Export your alerts and network history from the Alerts tab, then run the scripts in the repository’s <span class="code">matlab/</span> folder: tower and Wi-Fi anomaly charts, a Poisson brute-force model, and training a new phishing model whose weights BlackSwan loads from <span class="code">weights.json</span>.</p>
+        <p class="muted small" id="model-info"></p>
+      </section>
+    </section>
+
+    <p class="foot muted small">BlackSwan reads only and sends nothing anywhere. No app on an ordinary phone can scan the baseband chip itself or prove a phone is free of spyware; if you think you are being targeted, get help from a trusted security professional.</p>
+  </main>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

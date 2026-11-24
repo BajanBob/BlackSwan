@@ -1,0 +1,9 @@
+{
+  "appId": "bb.blackswan.app",
+  "appName": "BlackSwan",
+  "webDir": "www",
+  "backgroundColor": "#070d14",
+  "android": { "allowMixedContent": false, "webContentsDebuggingEnabled": false },
+  "ios": { "contentInset": "never", "webContentsDebuggingEnabled": false },
+  "plugins": { "LocalNotifications": { "iconColor": "#9fe3f5" } }
+}

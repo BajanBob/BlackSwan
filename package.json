@@ -1,0 +1,28 @@
+{
+  "name": "blackswan",
+  "productName": "BlackSwan",
+  "version": "1.0.0",
+  "description": "BlackSwan: commercial alert and defence system against phishing, fake websites, redirects, man-in-the-middle attacks, takeover scams and intrusion. Built on GuardYourPhone.",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "core": "node -e \"require('fs').copyFileSync(require.resolve('@capacitor/core/dist/index.js'),'www/capacitor-core.js')\"",
+    "cap:android": "npm run core && cap add android && node scripts/patch-android.mjs && capacitor-assets generate --iconBackgroundColor '#070d14' --iconBackgroundColorDark '#070d14' --splashBackgroundColor '#070d14' --splashBackgroundColorDark '#070d14' --android && cap sync android",
+    "cap:ios": "npm run core && cap add ios && node scripts/patch-ios.mjs && capacitor-assets generate --iconBackgroundColor '#070d14' --iconBackgroundColorDark '#070d14' --splashBackgroundColor '#070d14' --splashBackgroundColorDark '#070d14' --ios && cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/device": "^8.0.0",
+    "@capacitor/local-notifications": "^8.0.0",
+    "@capgo/capacitor-native-biometric": "^8.9.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.0.0",
+    "plist": "^3.1.0"
+  }
+}
