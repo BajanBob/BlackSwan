@@ -3,3 +3,4 @@ node_modules/
 /ios/
 www/capacitor-core.js
 *.log
+__pycache__/
