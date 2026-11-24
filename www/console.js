@@ -257,5 +257,5 @@ $('#al-export').addEventListener('click', () => {
 
 // ---------- desktop agent ----------
 let agent = '';
-fetch('agent/blackswan_agent.py').then((r) => (r.ok ? r.text() : '')).then((t) => { agent = t; $('#ag-src').textContent = t || 'The agent file is in the repository at www/agent/blackswan_agent.py.'; }).catch(() => {});
+fetch('agent/blackswan_agent.py').then((r) => (r.ok ? r : fetch('agent/blackswan_agent.py.txt'))).then((r) => (r.ok ? r.text() : '')).then((t) => { agent = t; $('#ag-src').textContent = t || 'The agent file is in the repository at www/agent/blackswan_agent.py.'; }).catch(() => {});
 $('#ag-copy').addEventListener('click', () => (agent ? copy(agent, 'Script copied. Save it as blackswan_agent.py.') : toast('Script not loaded.')));
