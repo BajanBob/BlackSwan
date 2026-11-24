@@ -264,7 +264,7 @@ const openSettings = (to, pkg) => (demo ? toast('On your phone this opens Settin
 let last = null, lastNet = null;
 function render(data, net) {
   const { findings, score } = assess(data, net);
-  for (const x of findings) if (x.level === 'risk') raise(3, x.title, x.text, 'phone');
+  for (const x of findings) if (x.level === 'risk') raise(2, x.title, x.text, 'phone');
   const ring = $('#ring');
   ring.style.setProperty('--p', score);
   ring.style.setProperty('--c', score >= 80 ? 'var(--ok)' : score >= 55 ? 'var(--warn)' : 'var(--risk)');

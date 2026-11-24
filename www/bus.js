@@ -14,7 +14,7 @@ export function raise(level, title, detail = '', source = '') {
   const dup = list.find((a) => a.title === title && now - a.t < 600e3);
   if (dup) { dup.count = (dup.count || 1) + 1; dup.t = now; } else list.unshift({ level, title, detail, source, t: now });
   store.set('alerts', list.slice(0, 500));
-  subs.forEach((fn) => fn());
+  subs.forEach((fn) => fn({ level, dup: !!dup }));
 }
 export function clearAlerts() { store.set('alerts', []); subs.forEach((fn) => fn()); }
 /** Appends a record to a capped history series (cells, wifi, unlocks, scans). */

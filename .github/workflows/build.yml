@@ -6,6 +6,7 @@ name: BlackSwan app
 on:
   push:
     branches: [main]
+    paths-ignore: ['www/intel/**', 'matlab/**', '**.md']
   workflow_dispatch:
 
 permissions:

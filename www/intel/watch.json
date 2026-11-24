@@ -1,0 +1,33 @@
+{
+  "about": "BlackSwan curated watch list: new threat actors, AI attack tools and campaigns. Updated by BlackSwan's daily research agent and by hand. Each item: date (YYYY-MM-DD), level (2 caution, 3 danger, 4 critical), title, actor, summary, source (URL), iocs {ips, domains, userAgents}.",
+  "items": [
+    {
+      "date": "2026-11-12", "level": 4, "title": "ARTEX AI attack framework in widespread criminal and state use", "actor": "ARTEX users (Storm-0940, VAPOR PANDA, Storm-3358, Crafty Falcon)",
+      "summary": "Open-source AI agent framework used to scan targets, guess passwords at thousands of attempts a minute and abuse secrets leaked on GitHub, reaching cloud data within minutes. Public copies on Docker Hub (tomicdd/artex, congdonglinux/artex) were backdoored.",
+      "source": "https://www.stepsecurity.io/blog/artex-ai-pentesting-tool-attackers-leaked-secrets",
+      "iocs": {
+        "ips": ["91.92.240.238", "85.11.168.45", "178.16.54.129", "31.77.229.35", "199.19.77.84", "65.87.223.26", "157.22.126.128", "144.172.64.60", "144.172.64.99", "144.172.64.128", "38.244.50.120", "154.64.252.77", "183.1.65.106", "95.169.20.166", "203.190.1.60"],
+        "domains": [],
+        "userAgents": ["artex-enrich/1.0", "norma/0.4", "Mozilla/5.0 (compatible; ArtEx/1.0)", "Mozilla/5.0 (compatible; infra-hunt/1.0)", "verify-911-probe/1.0"]
+      }
+    },
+    {
+      "date": "2026-11-06", "level": 3, "title": "Storm-3358 targets financial firms with ARTEX", "actor": "Storm-3358",
+      "summary": "Financially motivated group using ARTEX against financial-sector organisations, exploiting unrestricted file uploads and server-side request flaws, then installing open-source remote-access tools.",
+      "source": "https://www.microsoft.com/en-us/security/blog/",
+      "iocs": { "ips": ["91.92.240.238", "85.11.168.45", "178.16.54.129", "31.77.229.35"] }
+    },
+    {
+      "date": "2026-11-05", "level": 3, "title": "AI agents hunt GitHub for leaked secrets", "actor": "ARTEX users",
+      "summary": "Agents search public repositories for company names plus words like secret and cloud or AI provider names, then sign in with what they find. Rotate any key ever committed, even if the commit was deleted.",
+      "source": "https://www.microsoft.com/en-us/security/blog/",
+      "iocs": { "ips": ["199.19.77.84", "65.87.223.26", "157.22.126.128"] }
+    },
+    {
+      "date": "2026-11-11", "level": 3, "title": "AntiFox attack tool built on ARTEX code", "actor": "AntiFox users",
+      "summary": "Attacks reported using AntiFox, a tool derived from ARTEX. Expect the same behaviour: bursts of automated requests, password spraying and leaked-secret abuse.",
+      "source": "https://darkreading.com/cybersecurity-operations/cyber-experts-fight-artex-antifox",
+      "iocs": {}
+    }
+  ]
+}

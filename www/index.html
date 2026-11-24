@@ -15,6 +15,8 @@
     <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6 52 13v17c0 13-8.6 23-20 28C20.6 53 12 43 12 30V13z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M20 41c5 4 17 4 24-3-4 .6-8 0-10-3 2-4 2-9-2-12-3-2-7 0-7 3.5 0 2 2 3 3.5 2-1.4 2-.7 6 2 8-4 2-7 2.6-10.5 4.5z" fill="currentColor"/><circle cx="25.6" cy="25.2" r="1.3" fill="var(--risk)"/></svg>
     <div><h1>BlackSwan</h1><p class="sub">Alert and defence system · built on GuardYourPhone</p></div>
   </header>
+  <div class="sticky">
+  <div id="threat-bar" class="threat-bar" role="status" aria-live="polite"><b>THREAT LEVEL GREEN</b><span>Level 3 · All clear</span><button id="threat-ack" type="button" hidden>Acknowledge</button></div>
   <nav class="tabs" id="tabs" aria-label="Sections">
     <button type="button" data-t="phone" aria-current="page">Phone</button>
     <button type="button" data-t="links">Links</button>
@@ -23,9 +25,13 @@
     <button type="button" data-t="artex">ARTEX Shield</button>
     <button type="button" data-t="guard">Guard</button>
     <button type="button" data-t="scams">Scams</button>
+    <button type="button" data-t="intel">Briefing</button>
     <button type="button" data-t="alerts">Alerts <b id="al-count"></b></button>
     <button type="button" data-t="desk">Desktop</button>
   </nav>
+  </div>
+  <div id="threat-flash" class="threat-flash" aria-hidden="true"></div>
+  <div class="threat-frame" aria-hidden="true"></div>
   <p id="demo" class="banner" hidden>You’re seeing example phone results. Install BlackSwan on your phone for a real check; the link, message, network and password tools work here too.</p>
   <div id="lock" class="lock" hidden>
     <div class="card"><h2>BlackSwan is locked</h2><p class="muted small" id="lock-info">Enter your passphrase.</p>
@@ -136,7 +142,11 @@
         <div class="ring" id="url-ring"><span id="url-score">–</span><small>% risk</small></div>
         <div class="score-text"><h2 id="url-verdict"></h2><p class="muted small" id="url-host"></p></div>
       </section>
-      <section class="card" id="url-find-card" hidden><h2>Why</h2><ul class="findings" id="url-find"></ul></section>
+      <section class="card" id="url-find-card" hidden><h2>Why</h2><ul class="findings" id="url-find"></ul>
+        <p class="muted small" style="margin-top:12px">Was BlackSwan right? Your answer teaches the model on this phone.</p>
+        <div class="row"><button class="btn sm" id="learn-safe" type="button">It was safe</button><button class="btn sm" id="learn-scam" type="button">It was a scam</button><button class="btn sm" id="learn-reset" type="button">Reset learning</button></div>
+        <p class="muted small" id="learn-info"></p>
+      </section>
     </section>
 
     <section class="panel" id="p-msg" hidden>
@@ -266,9 +276,25 @@
       <div id="scam-list" class="scams"></div>
     </section>
 
+    <section class="panel" id="p-intel" hidden>
+      <section class="card">
+        <div class="row spread"><h2>Daily global threat briefing</h2><button class="btn sm" id="intel-run" type="button">Check now</button></div>
+        <p class="muted small" id="intel-when">BlackSwan checks worldwide threat feeds once a day: live phishing sites, botnet servers, newly exploited software holes, threat-group updates and its own watch list of new attackers and AI attack tools such as ARTEX.</p>
+        <ul class="findings" id="intel-warn"></ul>
+      </section>
+      <section class="card"><h2>Software holes being exploited now</h2><p class="muted small">From the CISA Known Exploited Vulnerabilities list (worldwide software). If you use one of these products, update it today.</p><ul class="findings" id="intel-kev"></ul></section>
+      <section class="card"><h2>Threat groups recently updated</h2><p class="muted small">From MITRE ATT&amp;CK, the global catalogue of attacker groups.</p><ul class="findings" id="intel-actors"></ul></section>
+      <section class="card"><h2>Feeds</h2><ul class="findings" id="intel-src"></ul></section>
+    </section>
+
     <section class="panel" id="p-alerts" hidden>
       <section class="card">
         <div class="row spread"><h2>Alert log</h2><div class="row"><button class="btn sm" id="al-export" type="button">Export for MATLAB</button><button class="btn sm" id="al-clear" type="button">Clear</button></div></div>
+        <div class="opts">
+          <label class="switch"><input type="checkbox" id="set-sound" checked><span>Sound alerts</span></label>
+          <label class="switch"><input type="checkbox" id="set-flash" checked><span>Flash the screen</span></label>
+        </div>
+        <div class="row" style="margin-bottom:10px"><button class="btn sm lv-green" data-test="green" type="button">Test green</button><button class="btn sm lv-amber" data-test="amber" type="button">Test amber</button><button class="btn sm lv-red" data-test="red" type="button">Test red</button></div>
         <ul class="findings" id="al-list"></ul>
         <textarea id="al-json" class="in mono" rows="6" readonly hidden></textarea>
       </section>

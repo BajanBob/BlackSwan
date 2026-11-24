@@ -89,7 +89,8 @@ export function rhythm(times) {
 }
 
 /** Analyse pasted or uploaded logs. Returns { findings: [{lv,title,text}], stats }. */
-export function analyzeLogs(text, { maxLines = 200000 } = {}) {
+export function analyzeLogs(text, { maxLines = 200000, extraIps = {}, extraUAs = [] } = {}) {
+  const badIps = { ...extraIps, ...ARTEX_IOCS.ips }; const uaList = [...ARTEX_IOCS.userAgents, ...extraUAs.filter(Boolean).map((u) => new RegExp(u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))];
   const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim()).slice(0, maxLines);
   const F = []; const add = (lv, title, txt) => F.push({ lv, title, text: txt });
   const byIp = new Map(); const uaHits = new Map(); const ipHits = new Map(); const ja4Hits = new Set();
@@ -99,8 +100,8 @@ export function analyzeLogs(text, { maxLines = 200000 } = {}) {
     const r = parseLine(line);
     const ip = r.ip && IPV4.test(r.ip) ? r.ip : null;
     if (ip) { if (!byIp.has(ip)) byIp.set(ip, { times: [], fails: 0, authFails: 0, accounts: new Set(), n: 0 }); const s = byIp.get(ip); s.n++; if (r.t != null) s.times.push(r.t); if (r.account) s.accounts.add(String(r.account).toLowerCase()); }
-    if (r.ua && ARTEX_IOCS.userAgents.some((re) => re.test(r.ua))) uaHits.set(r.ua, (uaHits.get(r.ua) || 0) + 1);
-    if (ip && ARTEX_IOCS.ips[ip]) ipHits.set(ip, (ipHits.get(ip) || 0) + 1);
+    if (r.ua && uaList.some((re) => re.test(r.ua))) uaHits.set(r.ua, (uaHits.get(r.ua) || 0) + 1);
+    if (ip && badIps[ip]) ipHits.set(ip, (ipHits.get(ip) || 0) + 1);
     for (const j of ARTEX_IOCS.ja4) if (line.includes(j)) ja4Hits.add(j);
     if (/\b8787\b/.test(line) && /artex|自主渗透测试控制台/i.test(line)) consoleRefs.add(line.slice(0, 160));
     if (ARTEX_IOCS.dockerImages.some((d) => line.includes(d)) || line.includes(ARTEX_IOCS.binarySha256)) consoleRefs.add(line.slice(0, 160));
@@ -111,8 +112,8 @@ export function analyzeLogs(text, { maxLines = 200000 } = {}) {
     if (ip && r.signin === 'ok' && failIps.get(ip) && (r.aadsts || aad.AADSTS7000215 + aad.AADSTS7000222 > 0)) okAfterFail.add(ip);
     if (ip && r.app) { if (!appsByIp.has(ip)) appsByIp.set(ip, new Set()); appsByIp.get(ip).add(String(r.app)); }
   }
-  for (const [ua, n] of uaHits) add(4, 'ARTEX user agent', `${n} request${n > 1 ? 's' : ''} with “${ua}”. This is the ARTEX framework or its Norma toolkit probing your service. Block it and check what those requests reached.`);
-  for (const [ip, n] of ipHits) add(4, `Known ARTEX infrastructure: ${ip}`, `${n} line${n > 1 ? 's' : ''} from ${ip} (${ARTEX_IOCS.ips[ip]}). Block it at the firewall and review everything it touched.`);
+  for (const [ua, n] of uaHits) add(4, ARTEX_IOCS.userAgents.some((re) => re.test(ua)) ? 'ARTEX user agent' : 'Known attack-tool user agent', `${n} request${n > 1 ? 's' : ''} with “${ua}”. This is the ARTEX framework or its Norma toolkit probing your service. Block it and check what those requests reached.`);
+  for (const [ip, n] of ipHits) add(4, ARTEX_IOCS.ips[ip] ? `Known ARTEX infrastructure: ${ip}` : `Known malicious server: ${ip}`, `${n} line${n > 1 ? 's' : ''} from ${ip} (${badIps[ip]}). Block it at the firewall and review everything it touched.`);
   for (const j of ja4Hits) add(3, 'ARTEX TLS fingerprint', `JA4 ${j} matches ARTEX agent traffic.`);
   for (const c of consoleRefs) add(4, 'ARTEX console or backdoored image referenced', c);
   for (const [ip, s] of byIp) {

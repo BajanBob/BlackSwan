@@ -24,6 +24,28 @@ export function setUrlWeights(obj) {
 }
 export const currentWeights = () => W;
 
+// ---------- live threat feeds (www/intel/feed.json, refreshed daily) ----------
+let INTEL = { domains: new Set(), urls: new Set(), updated: null };
+export function setIntel(feed) {
+  INTEL = { domains: new Set((feed?.phishDomains || []).map((d) => String(d).toLowerCase())), urls: new Set(feed?.phishUrls || []), updated: feed?.updated || null };
+  return INTEL.domains.size + INTEL.urls.size;
+}
+const listed = (raw, host, rd) => INTEL.urls.has(raw) || INTEL.urls.has(raw.replace(/\/$/, '')) || INTEL.domains.has(host) || INTEL.domains.has(host.replace(/^www\./, '')) || (rd !== host && INTEL.domains.has(rd) && !SHARED_HOSTS.test(rd));
+const SHARED_HOSTS = /(^|\.)(google\.com|blogspot\.com|github\.io|pages\.dev|workers\.dev|web\.app|firebaseapp\.com|netlify\.app|vercel\.app|weebly\.com|wixsite\.com|sharepoint\.com|dropbox\.com|amazonaws\.com|azurewebsites\.net|windows\.net|appspot\.com|r2\.dev)$/;
+
+/**
+ * On-device learning: one gradient step of logistic regression toward the person's own verdict (y = 1 scam, 0 safe),
+ * pulled gently back toward the built-in weights so a few answers personalise the model without breaking it.
+ */
+export function learnUrl(x, y, lr = 0.3, pull = 0.02) {
+  if (!x) return W.url;
+  let z = W.url.bias; for (const k of URL_FEATURES) z += W.url.w[k] * (x[k] || 0);
+  const err = sigmoid(z) - (y ? 1 : 0);
+  W.url.bias -= lr * err + pull * (W.url.bias - DEFAULT_WEIGHTS.url.bias);
+  for (const k of URL_FEATURES) W.url.w[k] -= lr * err * (x[k] || 0) + pull * (W.url.w[k] - DEFAULT_WEIGHTS.url.w[k]);
+  return W.url;
+}
+
 // ---------- reference lists (global, not tied to any one country) ----------
 const AMZ = ['amazon.com', 'amazonaws.com', 'amzn.to', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.es', 'amazon.it', 'amazon.nl', 'amazon.se', 'amazon.pl', 'amazon.com.be', 'amazon.ca', 'amazon.com.mx', 'amazon.com.br', 'amazon.in', 'amazon.co.jp', 'amazon.com.au', 'amazon.sg', 'amazon.ae', 'amazon.sa', 'amazon.eg', 'amazon.com.tr', 'amazon.co.za', 'amazon.cn'];
 export const BRANDS = { paypal: ['paypal.com', 'paypal.me'], apple: ['apple.com', 'icloud.com'], icloud: ['icloud.com', 'apple.com'], microsoft: ['microsoft.com', 'live.com', 'office.com', 'microsoftonline.com', 'outlook.com', 'windows.com', 'azure.com'], office365: ['office.com', 'microsoft.com'], outlook: ['outlook.com', 'live.com', 'office.com'], google: ['google.com', 'gmail.com', 'youtube.com', 'goo.gl', 'googleusercontent.com'], gmail: ['gmail.com', 'google.com'], amazon: AMZ, facebook: ['facebook.com', 'fb.com', 'meta.com'], instagram: ['instagram.com'], whatsapp: ['whatsapp.com', 'whatsapp.net', 'wa.me'], netflix: ['netflix.com'], binance: ['binance.com'], coinbase: ['coinbase.com'], metamask: ['metamask.io'], trustwallet: ['trustwallet.com'], fedex: ['fedex.com'], linkedin: ['linkedin.com'], adobe: ['adobe.com'], dropbox: ['dropbox.com'], docusign: ['docusign.com', 'docusign.net'], yahoo: ['yahoo.com'], tiktok: ['tiktok.com'], barclays: ['barclays.co.uk', 'barclays.com'], santander: ['santander.com'], wellsfargo: ['wellsfargo.com'], citibank: ['citi.com', 'citibank.com'], alibaba: ['alibaba.com'], aliexpress: ['aliexpress.com'], telegram: ['telegram.org', 't.me'], roblox: ['roblox.com'], epicgames: ['epicgames.com'], spotify: ['spotify.com'], revolut: ['revolut.com'], mastercard: ['mastercard.com'], steampowered: ['steampowered.com'], steamcommunity: ['steamcommunity.com'], discord: ['discord.com', 'discord.gg'], shopify: ['shopify.com'], airbnb: ['airbnb.com'], booking: ['booking.com'], github: ['github.com'], openai: ['openai.com', 'chatgpt.com'], ledger: ['ledger.com'], kraken: ['kraken.com'], westernunion: ['westernunion.com'], dhl: ['dhl.com'], ups: ['ups.com'], visa: ['visa.com'], chase: ['chase.com'], hsbc: ['hsbc.com'], ebay: ['ebay.com'], wise: ['wise.com'], steam: ['steampowered.com', 'steamcommunity.com'] };
@@ -95,7 +117,8 @@ export function analyzeURL(raw, depth = 0) {
     if (depth < 3) for (const n of nested) { const r = analyzeURL(n, depth + 1); if (r) { nestedP = Math.max(nestedP, r.prob); F.push({ lv: r.lv, t: `→ Redirect target ${r.host}: ${r.verdict} (${r.score}%)` }); } }
   }
   let z = W.url.bias; for (const k of URL_FEATURES) z += W.url.w[k] * x[k];
-  const p = Math.max(sigmoid(z), 0.9 * nestedP);
+  let p = Math.max(sigmoid(z), 0.9 * nestedP);
+  if (listed(raw, host, rd)) { p = Math.max(p, 0.97); F.unshift({ lv: 4, t: 'On today’s live phishing feeds: this exact site has been reported as phishing. Do not open it.' }); }
   if (!F.length) F.push({ lv: 1, t: 'No warning signs found. Still type important addresses yourself instead of following links.' });
   return done(p, F, host, x);
 }

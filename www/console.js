@@ -1,9 +1,12 @@
 // BlackSwan console: tabs, link / message scanners, intrusion monitor, password guard with fingerprint vault, alerts, desktop agent.
-import { analyzeURL, analyzeMsg, setUrlWeights, currentWeights, generatePassword, crackTime, poissonTail, URL_FEATURES } from './engine.js';
+import { DEFAULT_WEIGHTS, analyzeURL, analyzeMsg, setUrlWeights, currentWeights, generatePassword, crackTime, poissonTail, URL_FEATURES } from './engine.js';
 import { analyzeCells, analyzeWifi, analyzeArp } from './netwatch.js';
 import { store, raise, alerts, onAlert, clearAlerts, record, exportAll } from './bus.js';
 import { SCAMS } from './scams.js';
 import { analyzeLogs, findSecrets, ARTEX_IOCS } from './artex.js';
+import { learnUrl } from './engine.js';
+import { refreshIntel, currentIntel } from './intel.js';
+import { startPosture, playLevel, paint, postureOf } from './posture.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -14,16 +17,18 @@ const li = (lv, title, text) => `<li class="finding ${CLS[lv]}"><div><strong>${e
 async function copy(text, okMsg) { try { await navigator.clipboard.writeText(text); toast(okMsg || 'Copied.'); } catch { toast('Copying was blocked — select the text and copy it.'); } }
 
 // ---------- native plugins (absent in a normal browser) ----------
-let platform = 'web', Check = null, Bio = null;
+let platform = 'web', Check = null, Bio = null, Notes = null;
 try {
   const core = await import('./capacitor-core.js');
   platform = core.Capacitor.getPlatform();
   if (platform === 'android') Check = core.registerPlugin('GuardCheck');
-  if (platform !== 'web') Bio = core.registerPlugin('NativeBiometric');
+  if (platform !== 'web') { Bio = core.registerPlugin('NativeBiometric'); Notes = core.registerPlugin('LocalNotifications'); }
 } catch { /* browser */ }
 
 // Weights trained in MATLAB (optional file next to index.html).
 try { const r = await fetch('weights.json', { cache: 'no-store' }); if (r.ok && setUrlWeights(await r.json())) $('#model-info').textContent = 'Using phishing-model weights trained in MATLAB (weights.json).'; } catch { /* default weights */ }
+const learned = store.get('learned', null);
+if (learned?.w && setUrlWeights(learned.w)) $('#model-info').textContent += ` Personalised by ${learned.n} of your answers.`;
 if (!$('#model-info').textContent) $('#model-info').textContent = `Using built-in weights for ${URL_FEATURES.length} link features. Train your own with matlab/bs_train_url_model.m.`;
 
 // ---------- tabs ----------
@@ -39,23 +44,34 @@ show(location.hash.slice(1) || store.get('tab', 'phone'));
 window.addEventListener('hashchange', () => show(location.hash.slice(1)));
 
 // ---------- scanners ----------
-function paint(prefix, r) {
+function paintResult(prefix, r) {
   $(`#${prefix}-result`).hidden = false; $(`#${prefix}-find-card`).hidden = false;
   const ring = $(`#${prefix}-ring`); ring.style.setProperty('--p', r.score); ring.style.setProperty('--c', ['', 'var(--ok)', 'var(--warn)', 'var(--risk)', 'var(--crit)'][r.lv]);
   $(`#${prefix}-score`).textContent = r.score; $(`#${prefix}-verdict`).textContent = r.verdict; $(`#${prefix}-host`).textContent = r.host;
   $(`#${prefix}-find`).innerHTML = r.findings.map((f) => li(f.lv, LBL[f.lv], f.t)).join('');
 }
+let lastX = null;
 function scanUrl() {
   const v = $('#url').value; const r = analyzeURL(v); if (!r) return toast('Paste a link first.');
-  paint('url', r); record('scans', { kind: 'url', host: r.host, p: +r.prob.toFixed(4), x: r.x }, 500);
+  lastX = r.x; $('#learn-info').textContent = '';
+  paintResult('url', r); record('scans', { kind: 'url', host: r.host, p: +r.prob.toFixed(4), x: r.x }, 500);
   if (r.lv >= 3) raise(r.lv, `Dangerous link: ${r.host}`, `${r.verdict} · ${r.score}% phishing probability`, 'links');
 }
 function scanMsg() {
   const v = $('#msg').value; if (!v.trim()) return toast('Paste a message first.');
-  const r = analyzeMsg(v); paint('msg', r); record('scans', { kind: 'msg', p: +r.prob.toFixed(4), rules: r.rules }, 500);
+  const r = analyzeMsg(v); paintResult('msg', r); record('scans', { kind: 'msg', p: +r.prob.toFixed(4), rules: r.rules }, 500);
   if (r.lv >= 3) raise(r.lv, 'Scam message detected', `${r.verdict} · ${r.score}% · ${r.rules.join(', ')}`, 'messages');
 }
 $('#url-scan').addEventListener('click', scanUrl);
+function learn(y) {
+  if (!lastX) return toast('Scan a link first.');
+  const w = learnUrl(lastX, y); const prev = store.get('learned', { n: 0 });
+  store.set('learned', { n: prev.n + 1, w: structuredClone(w) }); record('scans', { kind: 'label', y, x: lastX }, 500);
+  $('#learn-info').textContent = `Thanks — BlackSwan has learned from ${prev.n + 1} answer${prev.n ? 's' : ''} on this phone.`; lastX = null;
+}
+$('#learn-safe').addEventListener('click', () => learn(0));
+$('#learn-scam').addEventListener('click', () => learn(1));
+$('#learn-reset').addEventListener('click', () => { store.del('learned'); setUrlWeights(DEFAULT_WEIGHTS.url); $('#learn-info').textContent = 'Learning reset to the built-in model.'; });
 $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') scanUrl(); });
 $('#url-paste').addEventListener('click', () => { $('#url').value = 'http://secure-paypa1.com.account-verify.top/login?redirect=https%3A%2F%2Fbit.ly%2F3xY'; scanUrl(); });
 $('#msg-scan').addEventListener('click', scanMsg);
@@ -110,7 +126,8 @@ $('#pin-check').addEventListener('click', () => {
 
 // ---------- ARTEX Shield ----------
 function axShow(text, label) {
-  const r = analyzeLogs(text);
+  const fi = currentIntel();
+  const r = analyzeLogs(text, { extraIps: fi?.badIps || {}, extraUAs: fi?.userAgents || [] });
   $('#ax-find').innerHTML = r.findings.map((f) => li(f.lv, f.title, f.text)).join('');
   $('#ax-stats').textContent = `${label}: ${r.stats.lines.toLocaleString()} lines, ${r.stats.ips} addresses.`;
   r.findings.filter((f) => f.lv >= 3).forEach((f) => raise(f.lv, f.title, f.text, 'artex'));
@@ -293,3 +310,36 @@ $('#al-export').addEventListener('click', () => {
 let agent = '';
 fetch('agent/blackswan_agent.py').then((r) => (r.ok ? r : fetch('agent/blackswan_agent.py.txt'))).then((r) => (r.ok ? r.text() : '')).then((t) => { agent = t; $('#ag-src').textContent = t || 'The agent file is in the repository at www/agent/blackswan_agent.py.'; }).catch(() => {});
 $('#ag-copy').addEventListener('click', () => (agent ? copy(agent, 'Script copied. Save it as blackswan_agent.py.') : toast('Script not loaded.')));
+
+// ---------- threat posture, sound and colour ----------
+startPosture();
+$('#set-sound').checked = store.get('sound', true); $('#set-flash').checked = store.get('flash', true);
+$('#set-sound').addEventListener('change', (e) => store.set('sound', e.target.checked));
+$('#set-flash').addEventListener('change', (e) => store.set('flash', e.target.checked));
+let testTimer = null;
+document.querySelectorAll('[data-test]').forEach((b) => b.addEventListener('click', () => {
+  const lv = b.dataset.test; clearTimeout(testTimer);
+  const s = store.get('sound', true); store.set('sound', true); playLevel(lv); store.set('sound', s);
+  paint(lv, { flash: lv !== 'green' }); testTimer = setTimeout(() => paint(postureOf()), 4000);
+}));
+
+// ---------- daily global briefing ----------
+const LVW = { 1: 'ok', 2: 'warn', 3: 'risk', 4: 'risk crit' };
+function renderIntel(f) {
+  if (!f) { $('#intel-when').textContent = 'No threat feed yet. Connect to the internet and tap “Check now”.'; return; }
+  const when = new Date(f.updated);
+  $('#intel-when').textContent = `Feed of ${when.toLocaleString()} (${f.from}${f.error ? `; latest check failed: ${f.error}` : ''}). ${(f.phishDomains || []).length.toLocaleString()} live phishing sites, ${Object.keys(f.badIps || {}).length.toLocaleString()} malicious servers and ${(f.watch || []).length} watched attackers are now part of every scan.`;
+  $('#intel-warn').innerHTML = (f.warnings || []).length ? f.warnings.map((w) => `<li class="finding ${LVW[w.level] || 'warn'}"><div><strong>${esc(w.title)}</strong><p>${esc(w.date)}${w.actor ? ' · ' + esc(w.actor) : ''}${w.text ? ' — ' + esc(w.text) : ''}</p>${/^https:\/\//.test(w.source || '') ? `<p><a href="${esc(w.source)}" target="_blank" rel="noopener">Source</a></p>` : w.source ? `<p>${esc(w.source)}</p>` : ''}</div></li>`).join('') : li(1, 'No new global warnings', 'Nothing new in the last two weeks.');
+  $('#intel-kev').innerHTML = (f.kev || []).slice(0, 15).map((v) => li(v.ransomware ? 3 : 2, `${v.vendor} ${v.product} — ${v.cve}`, `${v.name}. Added ${v.added}.${v.ransomware ? ' Used by ransomware gangs.' : ''}`)).join('') || li(1, 'No list yet', 'The software-holes list loads with the next daily feed.');
+  $('#intel-actors').innerHTML = (f.actors || []).slice(0, 12).map((a) => `<li class="finding warn"><div><strong>${esc(a.name)}</strong><p>Updated ${esc(a.modified)}${a.aliases?.length ? ' · also called ' + esc(a.aliases.slice(0, 4).join(', ')) : ''}. ${esc(a.summary)}</p>${a.url ? `<p><a href="${esc(a.url)}" target="_blank" rel="noopener">MITRE profile</a></p>` : ''}</div></li>`).join('') || li(1, 'No list yet', 'Loads with the next daily feed.');
+  $('#intel-src').innerHTML = (f.sources || []).map((x) => li(x.ok ? 1 : 2, `${x.name}${x.ok ? ` · ${x.count}` : ''}`, x.ok ? '' : `Unavailable on the last run: ${x.error}`)).join('');
+}
+async function intel(force) { const b = $('#intel-run'); b.disabled = true; b.textContent = 'Checking…'; try { renderIntel(await refreshIntel(force)); } finally { b.disabled = false; b.textContent = 'Check now'; } }
+$('#intel-run').addEventListener('click', () => intel(true));
+intel(false);
+// Re-check whenever the app comes back to the screen (at most once every 20 hours).
+document.addEventListener('visibilitychange', () => { if (!document.hidden) intel(false); });
+// A daily 8 am reminder to open the briefing (phones only).
+if (Notes) {
+  Notes.schedule({ notifications: [{ id: 800, title: 'BlackSwan daily threat briefing', body: 'New global warnings and threat actors are checked every day. Open BlackSwan to see today’s.', schedule: { on: { hour: 8, minute: 0 }, allowWhileIdle: true } }] }).catch(() => {});
+}
