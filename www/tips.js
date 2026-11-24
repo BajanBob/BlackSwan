@@ -26,6 +26,10 @@ const TIPS = {
   Guard: 'Strong passwords, fingerprint vault and the anti brute-force lock',
   Scams: 'Library of scams and takeover tricks, with red flags and how to stay safe',
   Briefing: 'Today’s worldwide threat warnings, exploited software and attacker groups',
+  Plans: 'Free, Plus, Family and Business editions, free trial and licence keys',
+  'Try Plus free for 14 days': 'Switch on every Plus feature for 14 days, no payment needed',
+  Activate: 'Check and apply your licence key (works offline)',
+  'See plans': 'Compare Free, Plus, Family and Business',
   Desktop: 'Desktop checker for Windows, macOS and Linux, and the MATLAB tools',
   // BlackSwan buttons
   'Scan link': 'Check this link (nothing is sent anywhere)',

@@ -7,6 +7,7 @@ import { analyzeLogs, findSecrets, ARTEX_IOCS } from './artex.js';
 import { learnUrl } from './engine.js';
 import { refreshIntel, currentIntel } from './intel.js';
 import { startPosture, playLevel, paint, postureOf } from './posture.js';
+import { loadPlan, plan, can, config, PRICES, PLANS, startTrial, trialUsed, applyLicence, removeLicence } from './plans.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -64,6 +65,7 @@ function scanMsg() {
 }
 $('#url-scan').addEventListener('click', scanUrl);
 function learn(y) {
+  if (!can('plus')) { toast('Learning from your answers is part of BlackSwan Plus.'); return show('plans'); }
   if (!lastX) return toast('Scan a link first.');
   const w = learnUrl(lastX, y); const prev = store.get('learned', { n: 0 });
   store.set('learned', { n: prev.n + 1, w: structuredClone(w) }); record('scans', { kind: 'label', y, x: lastX }, 500);
@@ -169,7 +171,8 @@ function newPw() {
   $('#pw-info').textContent = `${Math.round(g.bits)} bits of entropy from ${g.pool} possible characters. Brute force at 100 billion guesses a second would take about ${crackTime(g.bits)}.`;
 }
 function setRot() {
-  clearInterval(rotTimer); const m = +$('#rot').value; store.set('rot', m);
+  clearInterval(rotTimer); let m = +$('#rot').value;
+  if (m && !can('plus')) { m = 0; $('#rot').value = '0'; toast('Automatic new passwords are part of BlackSwan Plus.'); } store.set('rot', m);
   if (!m) { $('#rot-info').textContent = retired ? `${retired} retired this session (never stored).` : 'Generated with your device’s cryptographic random generator. Never stored or sent.'; return; }
   nextAt = Date.now() + m * 60e3;
   const tick = () => { if (Date.now() >= nextAt) { newPw(); nextAt = Date.now() + m * 60e3; } const s = Math.ceil((nextAt - Date.now()) / 1000); $('#rot-info').textContent = `Next new password in ${s >= 3600 ? Math.ceil(s / 3600) + ' h' : s >= 60 ? Math.ceil(s / 60) + ' min' : s + ' s'} · ${retired} retired (never stored).`; };
@@ -301,6 +304,7 @@ function renderAlerts() {
 onAlert(renderAlerts); renderAlerts();
 $('#al-clear').addEventListener('click', clearAlerts);
 $('#al-export').addEventListener('click', () => {
+  if (!can('business')) { toast('Export for MATLAB and security teams is part of BlackSwan Business.'); return show('plans'); }
   const json = JSON.stringify(exportAll({ weights: currentWeights().url }), null, 1);
   const t = $('#al-json'); t.hidden = false; t.value = json;
   copy(json, 'Export copied. Save it as blackswan_export.json for MATLAB.');
@@ -468,3 +472,38 @@ const RECOVER = {
   sextortion: ['Stop replying and don’t pay — paying usually leads to more demands.', 'Keep evidence: screenshots of messages, usernames, payment details. Then block the person.', 'Report the account to the platform, and report to the police. If the images involve someone under 18, report to the police and to the NCMEC Take It Down service or your national hotline.', 'Tell someone you trust. You are not alone, and this is a crime against you.'],
 };
 $('#rc-what').addEventListener('change', (e) => { $('#rc-steps').innerHTML = (RECOVER[e.target.value] || []).map((s) => `<li>${esc(s)}</li>`).join(''); });
+
+// ---------- editions: Free / Plus / Family / Business ----------
+function applyLocks() {
+  document.querySelectorAll('[data-plan]').forEach((el) => {
+    const need = el.dataset.plan; const locked = !can(need);
+    el.classList.toggle('locked', locked);
+    el.querySelector(':scope > .lock-over')?.remove();
+    if (locked) {
+      const o = document.createElement('div'); o.className = 'lock-over';
+      o.innerHTML = `<span class="tag">${esc(PLANS[need].name)}</span><b>${need === 'business' ? 'Part of BlackSwan Business' : 'Part of BlackSwan Plus'}</b><button class="btn sm" type="button" data-goto-plans>See plans${need === 'plus' && !trialUsed() ? ' · free trial' : ''}</button>`;
+      el.append(o);
+    }
+  });
+}
+document.addEventListener('click', (e) => { if (e.target.closest('[data-goto-plans]')) { show('plans'); window.scrollTo(0, 0); } });
+function renderPlans() {
+  const p = plan(); const cfg = config();
+  $('#plan-badge').textContent = PLANS[p.plan].name + (p.source === 'trial' ? ' trial' : '');
+  $('#plan-info').textContent = p.source === 'licence' ? `Licensed to ${p.name || 'you'}${p.devices > 1 ? ` · ${p.devices} devices` : ''}${p.expires ? ` · renews or ends ${new Date(p.expires).toLocaleDateString()}` : ''}.`
+    : p.source === 'trial' ? `Your Plus trial ends ${new Date(p.expires).toLocaleDateString()}.`
+      : p.expired ? `Your ${PLANS[p.expired.plan].name} licence ended ${new Date(p.expired.expires).toLocaleDateString()}. Renew to switch Plus features back on.` : 'You’re on BlackSwan Free. Safety features stay free forever.';
+  $('#plan-trial').hidden = trialUsed() || p.plan !== 'free';
+  const buy = $('#plan-buy'); buy.hidden = !(cfg.buyUrl && cfg.channel !== 'play'); if (!buy.hidden) buy.href = cfg.buyUrl;
+  $('#plan-remove').hidden = p.source !== 'licence';
+  $('#plan-cards').innerHTML = PRICES.map((x) => `<section class="card${x.id === p.plan ? ' current' : ''}"><h3>${esc(x.name)}</h3><p class="price">${esc(x.price)}</p><p class="per">${esc(x.per)}</p><p class="muted small">${esc(x.blurb)}</p><ul>${x.features.map((f) => `<li>${esc(f)}</li>`).join('')}</ul></section>`).join('');
+}
+async function refreshPlan() { await loadPlan(); applyLocks(); renderPlans(); }
+$('#plan-trial').addEventListener('click', async () => { if (startTrial()) { await refreshPlan(); toast('Your 14-day Plus trial has started.'); } });
+$('#plan-apply').addEventListener('click', async () => {
+  const lic = await applyLicence($('#plan-key').value);
+  $('#plan-msg').textContent = lic ? `Activated: ${PLANS[lic.plan].name}${lic.name ? ' for ' + lic.name : ''}.` : 'That licence key isn’t valid. Check it was copied in full.';
+  if (lic) { $('#plan-key').value = ''; await refreshPlan(); }
+});
+$('#plan-remove').addEventListener('click', async () => { removeLicence(); await refreshPlan(); $('#plan-msg').textContent = 'Licence removed from this device.'; });
+await refreshPlan();

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="BlackSwan">
+  <defs>
+    <linearGradient id="bs-shield" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eefbff"/><stop offset="1" stop-color="#9fe3f5"/></linearGradient>
+  </defs>
+  <path d="M64 6 110 22v38c0 30-19 52-46 62C37 112 18 90 18 60V22Z" fill="url(#bs-shield)" stroke="#070d14" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M82 26a28 28 0 0 1 17 15" fill="none" stroke="#070d14" stroke-width="3.5" stroke-linecap="round" opacity=".3"/>
+  <path d="M80 34a18 18 0 0 1 11 10" fill="none" stroke="#070d14" stroke-width="3.5" stroke-linecap="round" opacity=".55"/>
+  <path d="M28 84c12 16 50 18 70 4 6-5 8-12 8-20-10 8-24 10-36 6-14-4-28 2-42 10Z" fill="#070d14"/>
+  <path d="M48 81c-11-15 0-24 9-31 9-7 7-19-3-19" fill="none" stroke="#070d14" stroke-width="7" stroke-linecap="round"/>
+  <ellipse cx="51.5" cy="31" rx="6.5" ry="4.8" fill="#070d14"/>
+  <path d="M46 29 35 33.5 46 34Z" fill="#ff2d4a"/>
+  <circle cx="52" cy="29.6" r="1.5" fill="#ff2d4a"/>
+  <path d="M66 78c6-1 12-4 16-8M76 80c6-1 12-5 16-10M86 82c5-2 9-6 12-11" fill="none" stroke="#9fe3f5" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+  <path d="M36 92c14 6 36 6 52-2" fill="none" stroke="#070d14" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+</svg>

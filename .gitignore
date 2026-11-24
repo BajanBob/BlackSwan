@@ -4,3 +4,5 @@ node_modules/
 www/capacitor-core.js
 *.log
 __pycache__/
+*.pem
+licence-private*

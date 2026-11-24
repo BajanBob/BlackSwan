@@ -15,8 +15,8 @@
 </head>
 <body>
   <header class="top">
-    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6 52 13v17c0 13-8.6 23-20 28C20.6 53 12 43 12 30V13z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M20 41c5 4 17 4 24-3-4 .6-8 0-10-3 2-4 2-9-2-12-3-2-7 0-7 3.5 0 2 2 3 3.5 2-1.4 2-.7 6 2 8-4 2-7 2.6-10.5 4.5z" fill="currentColor"/><circle cx="25.6" cy="25.2" r="1.3" fill="var(--risk)"/></svg>
-    <div><h1>BlackSwan</h1><p class="sub">Alert and defence system · built on GuardYourPhone</p></div>
+    <img class="logo" src="logo.svg" alt="" width="46" height="46">
+    <div><h1>BlackSwan</h1><p class="sub">Alert · Defend · Recover</p></div>
   </header>
   <div class="sticky">
   <div id="threat-bar" class="threat-bar" role="status" aria-live="polite" data-tip="Green: all clear · Amber: something to check · Red: danger aimed at you. Alerts older than 24 hours stop counting."><b>THREAT LEVEL GREEN</b><span>Level 3 · All clear</span><button id="threat-ack" type="button" hidden>Acknowledge</button></div>
@@ -31,6 +31,7 @@
     <button type="button" data-t="intel">Briefing</button>
     <button type="button" data-t="alerts">Alerts <b id="al-count"></b></button>
     <button type="button" data-t="desk">Desktop</button>
+    <button type="button" data-t="plans">Plans</button>
   </nav>
   </div>
   <div id="threat-flash" class="threat-flash" aria-hidden="true"></div>
@@ -154,7 +155,7 @@
     </section>
 
     <section class="panel" id="p-msg" hidden>
-      <section class="card" id="guard-card">
+      <section data-plan="plus" class="card" id="guard-card">
         <h2>Real-time scam guard</h2>
         <p class="muted small">Checks new texts, chats and emails the moment they arrive — even when BlackSwan is closed — and warns you straight away about links on today’s phishing list and takeover tricks (remote-control apps, “share the code”, gift cards, paste-and-run). It works on this phone only, sends nothing anywhere and keeps only the warnings. Android only: Apple doesn’t allow this on iPhone.</p>
         <p class="big" id="sg-state">Off</p>
@@ -176,7 +177,7 @@
     </section>
 
     <section class="panel" id="p-net" hidden>
-      <section class="card" id="watch-card">
+      <section data-plan="plus" class="card" id="watch-card">
         <h2>Intrusion monitor</h2>
         <p class="muted small">Learns what is normal for you — your towers, Wi-Fi access points, routers and DNS — and warns when something changes the way fake towers, evil-twin hotspots and man-in-the-middle attacks do. Run it now and then, especially in hotels, airports and cafés.</p>
         <button class="btn primary" id="watch-run" type="button">Scan networks now</button>
@@ -191,7 +192,7 @@
       <button id="net" class="btn" type="button">Check mobile network</button>
       <div id="network"></div>
     </section>
-      <section class="card">
+      <section data-plan="plus" class="card">
         <h2>Computer on the same network? Check for ARP spoofing</h2>
         <p class="muted small">On a laptop or desktop, open a terminal, run <span class="code">arp -a</span> and paste the result. One device claiming several addresses — especially your router’s — means someone is in the middle.</p>
         <label class="lbl" for="gw">Router address (optional)</label><input class="in" id="gw" type="text" placeholder="192.168.1.1" inputmode="decimal">
@@ -199,7 +200,7 @@
         <div class="row" style="margin-top:10px"><button class="btn" id="arp-run" type="button">Analyse</button></div>
         <ul class="findings" id="arp-find" style="margin-top:10px"></ul>
       </section>
-      <section class="card">
+      <section data-plan="plus" class="card">
         <h2>Certificate pinning</h2>
         <p class="muted small">On a network you trust, copy a site’s SHA-256 certificate fingerprint (padlock → certificate) and pin it. On public Wi-Fi, paste it again: a different certificate means stop and check. Sites renew certificates every few months, so a mismatch is a warning, not proof.</p>
         <label class="lbl" for="pin-host">Site</label><input class="in" id="pin-host" type="text" placeholder="yourbank.com" autocapitalize="off">
@@ -210,7 +211,7 @@
     </section>
 
     <section class="panel" id="p-artex" hidden>
-      <section class="card">
+      <section data-plan="business" class="card">
         <h2>ARTEX Shield</h2>
         <p class="muted small">ARTEX is an AI attack framework: agents scan, guess passwords, hunt leaked secrets on GitHub and break in within minutes. It and its offshoots (such as AntiFox) have been used against banks, governments and software firms around the world since August 2026. BlackSwan looks for its traces in your logs: its user agents and known servers, its TLS fingerprint, its “burst, then think” request rhythm, password spraying and stolen-app-secret sign-ins.</p>
         <label class="lbl" for="ax-log">Paste logs (web server, proxy, firewall, API gateway or cloud sign-in logs; text, CSV or JSON lines)</label>
@@ -221,14 +222,14 @@
         <p class="muted small" id="ax-stats"></p>
         <ul class="findings" id="ax-find"></ul>
       </section>
-      <section class="card">
+      <section data-plan="business" class="card">
         <h2>Leaked secrets check</h2>
         <p class="muted small">ARTEX’s fastest way in is a password, token or API key left in a public repository. Paste a file, config or commit diff to check it. Matches are masked on screen. Any secret that was ever public must be replaced (rotated), even if the commit was deleted. To scan whole repositories including their history, use the desktop agent: <span class="code">python3 blackswan_agent.py --secrets PATH</span></p>
         <textarea class="in mono" id="sec-in" rows="5"></textarea>
         <div class="row" style="margin-top:10px"><button class="btn" id="sec-run" type="button">Check for secrets</button></div>
         <ul class="findings" id="sec-find" style="margin-top:10px"></ul>
       </section>
-      <section class="card">
+      <section data-plan="business" class="card">
         <h2>Block list</h2>
         <p class="muted small" id="ax-ioc-info"></p>
         <div class="row"><button class="btn" id="ax-ioc-copy" type="button">Copy indicators</button></div>
@@ -268,14 +269,14 @@
         <div class="row" style="margin-top:10px"><button class="btn primary" id="pwn-run" type="button">Check password</button><button class="btn" id="pwn-cur" type="button">Check the generated one</button></div>
         <ul class="findings" id="pwn-out" style="margin-top:10px"></ul>
       </section>
-      <section class="card">
+      <section data-plan="plus" class="card">
         <h2>Fingerprint vault</h2>
         <p class="muted small" id="vault-info">Save a generated password inside your phone’s secure hardware (Android Keystore / iPhone Keychain). Showing it again needs your fingerprint or face.</p>
         <label class="lbl" for="vault-label">What is it for?</label><input class="in" id="vault-label" type="text" placeholder="Email account">
         <div class="row" style="margin-top:10px"><button class="btn primary" id="vault-save" type="button">Save current password behind fingerprint</button></div>
         <ul class="findings" id="vault-list" style="margin-top:10px"></ul>
       </section>
-      <section class="card">
+      <section data-plan="plus" class="card">
         <h2>Anti brute-force lock</h2>
         <p class="big" id="gate-state">Not set up</p>
         <p class="muted small" id="gate-info">Set a passphrase to lock BlackSwan. After 3 wrong tries the wait doubles each time (30 s up to 1 hour). Failure bursts are tested against your normal typo rate with a Poisson model and raised as an attack alert. With a fingerprint enrolled, the right passphrase alone is not enough.</p>
@@ -319,9 +320,23 @@
         <p class="tipday" id="tipday" data-tip="A new safety tip every day"></p>
         <ul class="findings" id="intel-warn"></ul>
       </section>
-      <section class="card"><h2>Software holes being exploited now</h2><p class="muted small">From the CISA Known Exploited Vulnerabilities list (worldwide software). If you use one of these products, update it today.</p><ul class="findings" id="intel-kev"></ul></section>
-      <section class="card"><h2>Threat groups recently updated</h2><p class="muted small">From MITRE ATT&amp;CK, the global catalogue of attacker groups.</p><ul class="findings" id="intel-actors"></ul></section>
+      <section data-plan="plus" class="card"><h2>Software holes being exploited now</h2><p class="muted small">From the CISA Known Exploited Vulnerabilities list (worldwide software). If you use one of these products, update it today.</p><ul class="findings" id="intel-kev"></ul></section>
+      <section data-plan="plus" class="card"><h2>Threat groups recently updated</h2><p class="muted small">From MITRE ATT&amp;CK, the global catalogue of attacker groups.</p><ul class="findings" id="intel-actors"></ul></section>
       <section class="card"><h2>Feeds</h2><ul class="findings" id="intel-src"></ul></section>
+    </section>
+
+    <section class="panel" id="p-plans" hidden>
+      <section class="card">
+        <div class="row spread"><h2>Your plan</h2><span class="tag" id="plan-badge">Free</span></div>
+        <p class="muted small" id="plan-info"></p>
+        <div class="row"><button class="btn primary" id="plan-trial" type="button">Try Plus free for 14 days</button><a class="btn" id="plan-buy" href="#" target="_blank" rel="noopener" hidden>Buy or renew</a></div>
+        <label class="lbl" for="plan-key">Licence key</label>
+        <input class="in mono" id="plan-key" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="BSW1.…">
+        <div class="row" style="margin-top:10px"><button class="btn" id="plan-apply" type="button">Activate</button><button class="btn" id="plan-remove" type="button">Remove licence</button></div>
+        <p class="muted small" id="plan-msg"></p>
+      </section>
+      <div class="plans" id="plan-cards"></div>
+      <p class="muted small">Prices in US dollars; regional prices may be lower. Safety features — the phone check-up, spy-app detection, scanners, alerts and the recovery assistant — are free for everyone, always. Design: Kammie Holder.</p>
     </section>
 
     <section class="panel" id="p-alerts" hidden>

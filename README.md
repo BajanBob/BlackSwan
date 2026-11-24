@@ -17,6 +17,23 @@
 | **Alerts** | Every danger in one log, exportable as JSON for MATLAB. |
 | **Desktop** | `www/agent/blackswan_agent.py` — read-only Windows/macOS/Linux agent: ARP spoofing and router MAC changes, DNS hijack (vs DNS-over-HTTPS), TLS interception, hosts-file and proxy tampering, running remote-access tools, an **open-port audit** (flags risky ports open to the network) and **port-scan detection** in firewall logs; ARTEX Shield (`--artex` finds ARTEX consoles on your own network and booby-trapped copies, `--logs` checks logs, `--secrets` scans folders and git history for leaked keys). |
 
+## Editions and pricing
+
+| | Free | Plus | Family | Business |
+|---|---|---|---|---|
+| Price (USD) | 0 | 2.99 / month or 24.99 / year | 39.99 / year, 5 people | 5 per device / month; sites from 99 / month |
+| Phone check-up, spy-app detection, link / QR / message scanner, alerts, recovery assistant, leaked-password check | ✓ | ✓ | ✓ | ✓ |
+| Real-time scam guard, intrusion monitor, pinning and ARP checks, fingerprint vault, password rotation, app lock, full briefing, learning, desktop editions | | ✓ | ✓ | ✓ |
+| ARTEX Shield, leaked-secrets scanning, block lists, MATLAB export, commercial use, priority support | | | | ✓ |
+
+Safety features stay free for everyone. New installs can try Plus for 14 days.
+
+**Licence keys** are signed offline, so no server or customer account is needed:
+
+1. Once, on your own computer: `node scripts/licence.mjs init` — creates your private signing key in `~/.blackswan/` (back it up, never share or commit it) and writes the public key to `www/licence-key.json`. Commit and push that file.
+2. For each sale: `node scripts/licence.mjs issue --plan plus --name "Customer" --months 12` (or `--plan family`, or `--plan business --devices 25 --months 1`). Send the printed `BSW1.…` key to the customer; they paste it in **Plans → Licence key**.
+3. Put your checkout link (for example a Paddle checkout) in `www/edition.json` as `buyUrl` to show a **Buy or renew** button. For a Google Play build set `channel` to `play`, which hides it (Play doesn't allow links to outside payment).
+
 ## Threat level: green, amber, red
 
 The whole screen shows BlackSwan’s threat level, with sound and vibration:
@@ -67,6 +84,10 @@ See [PRIVACY.md](PRIVACY.md): everything stays on the device; nothing is collect
 ## Limits
 
 BlackSwan reads only and sends nothing anywhere. No ordinary app can look inside the baseband chip, prove a phone is free of spyware, or stop an attack at the network level; Android hides some details (for example ARP tables) from apps. BlackSwan detects the signs that remain visible and tells you what to do.
+
+## Logo
+
+New BlackSwan logo in `assets/logo/` (SVG and PNG, dark and light, mark and wordmark). App icons and splash screens are generated from it.
 
 ## Credits
 

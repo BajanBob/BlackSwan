@@ -1,0 +1,1 @@
+{ "about": "Public key that checks BlackSwan licence keys. Replace it by running: node scripts/licence.mjs init (keeps the private key on your computer).", "jwk": null }
