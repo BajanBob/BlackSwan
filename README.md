@@ -64,6 +64,10 @@ Preview in a browser: `npx serve www` (phone results are examples; the other too
 
 BlackSwan reads only and sends nothing anywhere. No ordinary app can look inside the baseband chip, prove a phone is free of spyware, or stop an attack at the network level; Android hides some details (for example ARP tables) from apps. BlackSwan detects the signs that remain visible and tells you what to do.
 
+## Credits
+
+**Design: Kammie Holder.** Software: BajanBob. Built on GuardYourPhone.
+
 ## Licence
 
 Proprietary — see `LICENSE`. Built on GuardYourPhone (same owner).

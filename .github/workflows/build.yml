@@ -139,6 +139,7 @@ jobs:
             desktop/dist/BlackSwan-Windows-portable.exe
             desktop/dist/BlackSwan-Linux.AppImage
             desktop/dist/BlackSwan-Linux.tar.gz
+            desktop/dist/BlackSwan-Linux.zip
 
   agent:
     needs: test
@@ -171,6 +172,30 @@ jobs:
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with: { path: artifacts, pattern: 'bs-*', merge-multiple: true }
+      - name: Package zip files for every platform
+        run: |
+          cd artifacts
+          cat > README-FIRST.txt <<'TXT'
+          BlackSwan - alert and defence system against phishing, fake websites, redirects,
+          man-in-the-middle attacks, takeover scams and AI attack tools such as ARTEX.
+          Design: Kammie Holder. Software: BajanBob. Built on GuardYourPhone.
+
+          Android: open BlackSwan.apk on the phone and allow "install from this source".
+          Windows: run BlackSwan.exe (or BlackSwan-Windows-portable.exe). If Windows warns about an
+                   unknown publisher, choose More info -> Run anyway.
+          Linux:   chmod +x BlackSwan-Linux.AppImage and run it, or unpack and run ./blackswan.
+          Host agent: run from a terminal. First on a trusted network: --baseline
+                   Then: --artex (find ARTEX consoles), --logs FILE, --secrets FOLDER.
+          BlackSwan reads only and sends nothing anywhere.
+          TXT
+          sed -i 's/^          //' README-FIRST.txt
+          z() { out=$1; shift; have=(); for f in "$@"; do [ -e "$f" ] && have+=("$f"); done; [ ${#have[@]} -gt 0 ] && zip -q -j "$out" README-FIRST.txt "${have[@]}" && echo "made $out"; true; }
+          z BlackSwan-Android.zip BlackSwan.apk
+          z BlackSwan-Agent-Windows.zip blackswan-agent-windows.exe
+          z BlackSwan-Agent-Linux.zip blackswan-agent-linux
+          z BlackSwan-Windows-Portable.zip BlackSwan-Windows-portable.exe blackswan-agent-windows.exe
+          rm README-FIRST.txt
+          ls -la
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.v.outputs.version }}
@@ -180,8 +205,14 @@ jobs:
           body: |
             **BlackSwan: alert and defence system.** Phone security check-up (from GuardYourPhone), phishing link and scam-message scanner, intrusion monitor for fake towers, evil-twin Wi-Fi and man-in-the-middle attacks, password generator with fingerprint vault and anti brute-force lock, scam library and a desktop host agent. It reads only; it sends nothing anywhere.
 
+            Design: **Kammie Holder** · Software: BajanBob · Built on GuardYourPhone.
+
             | File | For |
             |---|---|
+            | **BlackSwan-Android.zip** | Android APK with instructions |
+            | **BlackSwan-Windows-Portable.zip** | Windows portable .exe plus the host agent |
+            | **BlackSwan-Linux.zip** | Linux desktop (unzip and run ./blackswan) |
+            | **BlackSwan-Agent-Windows.zip** / **BlackSwan-Agent-Linux.zip** | Host agent with instructions |
             | **BlackSwan.apk** | Android phones: download, open, and allow "install from this source" when asked |
             | **BlackSwan-iPhone-unsigned.ipa** | iPhone: must be signed with an Apple Developer account before it can be installed |
             | **BlackSwan-Windows-portable.exe** | Windows 10/11: one file, double-click to run (no install). Windows may warn that it is from an unknown publisher: More info → Run anyway |
