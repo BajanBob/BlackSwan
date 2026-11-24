@@ -8,6 +8,7 @@ Analyse what BlackSwan sees and tune its detectors. Runs in MATLAB R2019b or new
 | `bs_load_export.m` | Reads the JSON from the app (Alerts tab → **Export for MATLAB**, saved as `blackswan_export.json`). |
 | `bs_network_anomaly.m` | Replays the intrusion monitor: EWMA z-scores on tower signal, tower identity changes, 2G downgrades, Wi-Fi router / access-point changes. Charts the signal and the alarms. |
 | `bs_bruteforce_model.m` | Fits the Poisson model behind the brute-force alarm to your own unlock history and suggests the alarm level. |
+| `bs_artex_rhythm.m` | Tests request times from one address for the ARTEX “burst, then think” rhythm (same rule as the app) and plots the gap histogram. |
 | `bs_alert_dashboard.m` | Alerts per day by severity and by source. |
 | `bs_url_features.m` | The 19 link features, mirroring `www/engine.js` line for line. |
 | `bs_train_url_model.m` | Trains the phishing-link model (regularised logistic regression, Newton/IRLS, 5-fold cross-validated AUC and ROC) and writes `www/weights.json`, which the app loads on start. |

@@ -3,6 +3,7 @@ import { analyzeURL, analyzeMsg, setUrlWeights, currentWeights, generatePassword
 import { analyzeCells, analyzeWifi, analyzeArp } from './netwatch.js';
 import { store, raise, alerts, onAlert, clearAlerts, record, exportAll } from './bus.js';
 import { SCAMS } from './scams.js';
+import { analyzeLogs, findSecrets, ARTEX_IOCS } from './artex.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -106,6 +107,39 @@ $('#pin-check').addEventListener('click', () => {
   else { r = [3, `Certificate mismatch: ${h}`, 'Either the site renewed its certificate or someone is intercepting. Check the issuer; if unsure, switch to mobile data.']; raise(3, r[1], r[2], 'pinning'); }
   $('#pin-find').innerHTML = li(...r);
 });
+
+// ---------- ARTEX Shield ----------
+function axShow(text, label) {
+  const r = analyzeLogs(text);
+  $('#ax-find').innerHTML = r.findings.map((f) => li(f.lv, f.title, f.text)).join('');
+  $('#ax-stats').textContent = `${label}: ${r.stats.lines.toLocaleString()} lines, ${r.stats.ips} addresses.`;
+  r.findings.filter((f) => f.lv >= 3).forEach((f) => raise(f.lv, f.title, f.text, 'artex'));
+  record('scans', { kind: 'artex', lines: r.stats.lines, hits: r.findings.filter((f) => f.lv >= 3).length }, 500);
+}
+$('#ax-run').addEventListener('click', async () => {
+  const files = [...($('#ax-file').files || [])];
+  if (files.length) { const parts = await Promise.all(files.map((f) => f.text())); axShow(parts.join('\n'), `${files.length} file${files.length > 1 ? 's' : ''}`); return; }
+  if (!$('#ax-log').value.trim()) return toast('Paste logs or choose a file first.');
+  axShow($('#ax-log').value, 'Pasted logs');
+});
+$('#ax-sample').addEventListener('click', () => {
+  // Synthetic sample (documentation addresses): agent rhythm, Norma user agent, password spraying.
+  const L = []; const fmt = (t) => new Date(t).toISOString(); let t = Date.UTC(2026, 10, 20, 10, 0, 0);
+  for (let c = 0; c < 6; c++) { for (let k = 0; k < 4; k++) { L.push(JSON.stringify({ time: fmt(t), ip: '198.51.100.77', method: 'GET', path: '/api/v1/users/' + (c * 4 + k), status: 200, user_agent: 'Go-http-client/2.0' })); t += 800; } t += 27500; }
+  L.push(JSON.stringify({ time: fmt(t), ip: '198.51.100.77', path: '/.git/config', status: 404, user_agent: 'norma/0.4' }));
+  for (let i = 0; i < 60; i++) L.push(JSON.stringify({ time: fmt(t + i * 400), ip: '192.0.2.50', path: '/oauth/token', status: 401, userPrincipalName: `staff${i % 25}@example.com` }));
+  $('#ax-log').value = L.join('\n'); $('#ax-file').value = ''; axShow($('#ax-log').value, 'Sample (synthetic)');
+});
+$('#sec-run').addEventListener('click', () => {
+  const s = findSecrets($('#sec-in').value);
+  $('#sec-find').innerHTML = s.length ? s.map((x) => li(4, `${x.kind} on line ${x.line}`, `${x.preview} — remove it, then rotate (replace) it with the provider; deleting the commit is not enough.`)).join('') : li(1, 'No secrets found', 'Nothing matched the known key and token formats.');
+  if (s.length) raise(4, `${s.length} leaked secret${s.length > 1 ? 's' : ''} found`, s.map((x) => x.kind).join(', '), 'secrets');
+});
+$('#ax-ioc-info').textContent = `Indicators from public threat reports up to ${ARTEX_IOCS.updated}: ${Object.keys(ARTEX_IOCS.ips).length} addresses, ${ARTEX_IOCS.ja4.length} TLS fingerprints, ${ARTEX_IOCS.dockerImages.length} booby-trapped Docker images and the ARTEX console port ${ARTEX_IOCS.consolePort}. Attackers change servers often, so a match is a lead, not proof.`;
+$('#ax-ioc-copy').addEventListener('click', () => copy([
+  `# ARTEX indicators (BlackSwan, ${ARTEX_IOCS.updated})`, '# IP addresses', ...Object.entries(ARTEX_IOCS.ips).map(([ip, w]) => `${ip}  # ${w}`),
+  '# User agents', 'artex-enrich/1.0', 'norma/0.4', 'Mozilla/5.0 (compatible; ArtEx/1.0)', 'Mozilla/5.0 (compatible; infra-hunt/1.0)', 'verify-911-probe/1.0',
+  '# JA4 TLS fingerprints', ...ARTEX_IOCS.ja4, '# Docker images (backdoored)', ...ARTEX_IOCS.dockerImages, `# SHA-256 of backdoored /app/artex`, ARTEX_IOCS.binarySha256, `# Console port`, String(ARTEX_IOCS.consolePort)].join('\n'), 'Indicators copied.'));
 
 // ---------- password generator ----------
 let current = '', retired = 0, rotTimer = null, nextAt = 0;

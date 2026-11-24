@@ -20,6 +20,7 @@
     <button type="button" data-t="links">Links</button>
     <button type="button" data-t="msg">Messages</button>
     <button type="button" data-t="net">Network</button>
+    <button type="button" data-t="artex">ARTEX Shield</button>
     <button type="button" data-t="guard">Guard</button>
     <button type="button" data-t="scams">Scams</button>
     <button type="button" data-t="alerts">Alerts <b id="al-count"></b></button>
@@ -187,6 +188,38 @@
       </section>
     </section>
 
+    <section class="panel" id="p-artex" hidden>
+      <section class="card">
+        <h2>ARTEX Shield</h2>
+        <p class="muted small">ARTEX is an AI attack framework: agents scan, guess passwords, hunt leaked secrets on GitHub and break in within minutes. It and its offshoots (such as AntiFox) have been used against banks, governments and software firms around the world since August 2026. BlackSwan looks for its traces in your logs: its user agents and known servers, its TLS fingerprint, its “burst, then think” request rhythm, password spraying and stolen-app-secret sign-ins.</p>
+        <label class="lbl" for="ax-log">Paste logs (web server, proxy, firewall, API gateway or cloud sign-in logs; text, CSV or JSON lines)</label>
+        <textarea class="in mono" id="ax-log" rows="7" placeholder="203.0.113.9 - - [20/Nov/2026:10:00:00 +0000] &quot;GET / HTTP/1.1&quot; 200 512 &quot;-&quot; &quot;Mozilla/5.0&quot;"></textarea>
+        <label class="lbl" for="ax-file">…or choose log files</label>
+        <input class="in" id="ax-file" type="file" multiple accept=".log,.txt,.csv,.json,.jsonl,text/*">
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="ax-run" type="button">Check for ARTEX</button><button class="btn" id="ax-sample" type="button">Try a sample attack log</button></div>
+        <p class="muted small" id="ax-stats"></p>
+        <ul class="findings" id="ax-find"></ul>
+      </section>
+      <section class="card">
+        <h2>Leaked secrets check</h2>
+        <p class="muted small">ARTEX’s fastest way in is a password, token or API key left in a public repository. Paste a file, config or commit diff to check it. Matches are masked on screen. Any secret that was ever public must be replaced (rotated), even if the commit was deleted. To scan whole repositories including their history, use the desktop agent: <span class="code">python3 blackswan_agent.py --secrets PATH</span></p>
+        <textarea class="in mono" id="sec-in" rows="5"></textarea>
+        <div class="row" style="margin-top:10px"><button class="btn" id="sec-run" type="button">Check for secrets</button></div>
+        <ul class="findings" id="sec-find" style="margin-top:10px"></ul>
+      </section>
+      <section class="card">
+        <h2>Block list</h2>
+        <p class="muted small" id="ax-ioc-info"></p>
+        <div class="row"><button class="btn" id="ax-ioc-copy" type="button">Copy indicators</button></div>
+        <ol class="numbered small">
+          <li>Keep any testing console off the internet: bind port 8787 to localhost and reach it through a VPN or SSH tunnel.</li>
+          <li>Turn on secret scanning and push protection for your repositories, use short-lived tokens, and never share credentials between test and live systems.</li>
+          <li>Rate-limit sign-in, password-reset and API endpoints; ARTEX campaigns ran thousands of guesses a minute.</li>
+          <li>Run the desktop agent with <span class="code">--artex</span> on your network to find exposed ARTEX consoles and booby-trapped copies.</li>
+        </ol>
+      </section>
+    </section>
+
     <section class="panel" id="p-guard" hidden>
       <section class="card">
         <h2>Random password generator</h2>
@@ -244,7 +277,7 @@
     <section class="panel" id="p-desk" hidden>
       <section class="card">
         <h2>BlackSwan host agent for Windows, macOS and Linux</h2>
-        <p class="muted small">A phone app can’t look inside your computer, so this companion script does the deep checks there: ARP spoofing and router changes, DNS hijacking (compared with DNS-over-HTTPS), TLS interception, hosts-file and proxy tampering, and remote-access tools scammers install. Standard Python 3, read-only, writes a JSON report.</p>
+        <p class="muted small">A phone app can’t look inside your computer, so this companion script does the deep checks there: ARP spoofing and router changes, DNS hijacking (compared with DNS-over-HTTPS), TLS interception, hosts-file and proxy tampering, and remote-access tools scammers install. ARTEX Shield: <span class="code">--artex</span> finds ARTEX consoles on your network and booby-trapped ARTEX copies on the machine, <span class="code">--logs FILE</span> checks logs for ARTEX traffic, and <span class="code">--secrets PATH</span> scans folders and git history for leaked keys. Standard Python 3, read-only, writes a JSON report.</p>
         <ol class="numbered small"><li>Save it as <span class="code">blackswan_agent.py</span>.</li><li>On a network you trust: <span class="code">python3 blackswan_agent.py --baseline</span></li><li>Later, anywhere: <span class="code">python3 blackswan_agent.py</span></li></ol>
         <button class="btn primary" id="ag-copy" type="button">Copy script</button>
         <pre id="ag-src" class="mono"></pre>
