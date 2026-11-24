@@ -55,6 +55,13 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.security.MessageDigest;
+import android.content.SharedPreferences;
+import android.content.pm.Signature;
+import org.json.JSONArray;
 
 /**
  * BlackSwan (based on GuardYourPhone): reads what Android lets an ordinary app see about the phone's processors, firmware,
@@ -79,6 +86,71 @@ public class GuardCheckPlugin extends Plugin {
     }
 
     private static String nz(String s) { return s == null ? "" : s; }
+
+    static String hex(byte[] b) { StringBuilder sb = new StringBuilder(); for (byte x : b) sb.append(String.format("%02X", x)); return sb.toString(); }
+
+    private static String sha256(File f) {
+        try (InputStream in = new FileInputStream(f)) {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] buf = new byte[65536]; int n;
+            while ((n = in.read(buf)) > 0) md.update(buf, 0, n);
+            return hex(md.digest()).toLowerCase();
+        } catch (Exception e) { return ""; }
+    }
+
+    // ---------------- BlackSwan: text shared to the app ("Share → BlackSwan") ----------------
+    static volatile String sharedText = null;
+
+    /** Returns text another app shared to BlackSwan (a link or a message), once. */
+    @PluginMethod
+    public void sharedText(PluginCall call) {
+        JSObject o = new JSObject();
+        String t = sharedText; sharedText = null;
+        o.put("text", t == null ? "" : t);
+        call.resolve(o);
+    }
+
+    // ---------------- BlackSwan: real-time scam guard for notifications ----------------
+    /** Whether the person has allowed BlackSwan's scam guard to read notifications. */
+    @PluginMethod
+    public void scamGuardStatus(PluginCall call) {
+        String enabled = nz(Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners"));
+        JSObject o = new JSObject();
+        o.put("enabled", enabled.contains(getContext().getPackageName() + "/"));
+        call.resolve(o);
+    }
+
+    /** Opens the screen where the person can switch the scam guard on or off. */
+    @PluginMethod
+    public void openScamGuardSettings(PluginCall call) {
+        Intent i = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { getContext().startActivity(i); } catch (Exception e) { Intent f = new Intent(Settings.ACTION_SETTINGS); f.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); getContext().startActivity(f); }
+        call.resolve();
+    }
+
+    /** Saves the daily phishing-domain list for the scam guard, which runs even when BlackSwan is closed. */
+    @PluginMethod
+    public void setBlocklist(PluginCall call) {
+        JSArray d = call.getArray("domains", new JSArray());
+        try (FileOutputStream out = new FileOutputStream(new File(getContext().getFilesDir(), BlackSwanNotificationService.BLOCKLIST))) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < d.length(); i++) sb.append(d.getString(i).toLowerCase()).append('\n');
+            out.write(sb.toString().getBytes("UTF-8"));
+            JSObject o = new JSObject(); o.put("saved", d.length()); call.resolve(o);
+        } catch (Exception e) { call.reject("Couldn't save the block list: " + e.getMessage()); }
+    }
+
+    /** Scam warnings the guard raised while BlackSwan was closed; returned once, then cleared. */
+    @PluginMethod
+    public void pendingThreats(PluginCall call) {
+        SharedPreferences sp = getContext().getSharedPreferences(BlackSwanNotificationService.PREFS, Context.MODE_PRIVATE);
+        String q = sp.getString(BlackSwanNotificationService.QUEUE, "[]");
+        sp.edit().putString(BlackSwanNotificationService.QUEUE, "[]").apply();
+        JSObject o = new JSObject();
+        try { o.put("items", new JSArray(q)); } catch (Exception e) { o.put("items", new JSArray()); }
+        call.resolve(o);
+    }
 
     /** Application processor, baseband (modem) firmware, Android build and time since the last restart. */
     @PluginMethod
@@ -233,7 +305,8 @@ public class GuardCheckPlugin extends Plugin {
                 DevicePolicyManager dpm = (DevicePolicyManager) c.getSystemService(Context.DEVICE_POLICY_SERVICE);
                 if (dpm != null && dpm.getActiveAdmins() != null) for (ComponentName a : dpm.getActiveAdmins()) admins.add(a.getPackageName());
                 Set<String> watch = new HashSet<>(Arrays.asList(WATCH));
-                List<PackageInfo> list = pm.getInstalledPackages(PackageManager.GET_PERMISSIONS);
+                int flags = PackageManager.GET_PERMISSIONS | (Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES);
+                List<PackageInfo> list = pm.getInstalledPackages(flags);
                 JSArray out = new JSArray();
                 int system = 0;
                 for (PackageInfo p : list) {
@@ -273,6 +346,21 @@ public class GuardCheckPlugin extends Plugin {
                         }
                     }
                     a.put("permissions", perms);
+                    // BlackSwan: signing-certificate fingerprints (to match known spy apps even when renamed),
+                    // and a SHA-256 of apps installed from a file (to match known malware).
+                    JSArray certs = new JSArray();
+                    try {
+                        Signature[] sigs = null;
+                        if (Build.VERSION.SDK_INT >= 28 && p.signingInfo != null) sigs = p.signingInfo.hasMultipleSigners() ? p.signingInfo.getApkContentsSigners() : p.signingInfo.getSigningCertificateHistory();
+                        else sigs = p.signatures;
+                        if (sigs != null) for (Signature sg : sigs) certs.put(hex(MessageDigest.getInstance("SHA-1").digest(sg.toByteArray())));
+                    } catch (Exception ignored) { }
+                    a.put("certs", certs);
+                    boolean fromFile = !isSystem && (installer == null || installer.isEmpty() || installer.contains("packageinstaller"));
+                    if (fromFile && ai.sourceDir != null) {
+                        File apk = new File(ai.sourceDir);
+                        if (apk.length() < 300L * 1024 * 1024) a.put("sha256", sha256(apk));
+                    }
                     out.put(a);
                 }
                 JSObject o = new JSObject();

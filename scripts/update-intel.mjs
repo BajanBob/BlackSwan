@@ -69,6 +69,42 @@ let actors = [];
   }
 }
 
+
+// 6a. Stalkerware and spy apps: package names and signing certificates (Echap stalkerware-indicators, CC BY 4.0).
+const spyware = { packages: {}, certificates: {}, watchware: {} };
+function parseIocYaml(text, into, kind) {
+  let name = null, key = null, n = 0;
+  for (const raw of text.split(/\r?\n/)) {
+    let m;
+    if ((m = raw.match(/^- name:\s*(.+)$/))) { name = m[1].trim().replace(/^['"]|['"]$/g, ''); key = null; continue; }
+    if ((m = raw.match(/^ {2}([a-z_]+):\s*$/))) { key = m[1]; continue; }
+    if ((m = raw.match(/^ {2}([a-z_]+):\s*\S/))) { key = null; continue; }
+    if ((m = raw.match(/^ {2}- (.+)$/)) && name && key) {
+      const v = m[1].trim().replace(/^['"]|['"]$/g, '');
+      if (key === 'packages') { into[kind === 'watchware' ? 'watchware' : 'packages'][v] = name; n++; }
+      else if (key === 'certificates' && kind !== 'watchware') { into.certificates[v.toUpperCase().replace(/[^0-9A-F]/g, '')] = name; }
+    }
+  }
+  return n;
+}
+for (const [name, url, kind] of [['Stalkerware indicators (Echap)', 'https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/ioc.yaml', 'stalkerware'],
+  ['Watchware indicators (Echap)', 'https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/watchware.yaml', 'watchware']]) {
+  const t = await get(name, url, 'text');
+  if (t) ok(name, url, parseIocYaml(t, spyware, kind));
+}
+
+// 6b. Android malware hashes from abuse.ch MalwareBazaar (needs a free Auth-Key in the ABUSE_CH_KEY secret).
+const malwareHashes = {};
+if (process.env.ABUSE_CH_KEY) {
+  const url = 'https://mb-api.abuse.ch/api/v1/';
+  try {
+    const r = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(60000), headers: { 'Auth-Key': process.env.ABUSE_CH_KEY, 'content-type': 'application/x-www-form-urlencoded' }, body: 'query=get_file_type&file_type=apk&limit=1000' });
+    const j = await r.json();
+    for (const x of j.data || []) if (x.sha256_hash) malwareHashes[x.sha256_hash.toLowerCase()] = x.signature || 'Android malware';
+    ok('MalwareBazaar Android', url, Object.keys(malwareHashes).length);
+  } catch (e) { sources.push({ name: 'MalwareBazaar Android', url, ok: false, error: String(e.message || e) }); }
+} else sources.push({ name: 'MalwareBazaar Android', ok: false, error: 'add a free abuse.ch Auth-Key as the ABUSE_CH_KEY repository secret to enable' });
+
 // 6. Curated watch list (updated by BlackSwan's daily research agent and by hand): new actors, AI attack tools, campaigns.
 let watch = { items: [] };
 try { watch = JSON.parse(fs.readFileSync(WATCH, 'utf8')); } catch (e) { sources.push({ name: 'Watch list', ok: false, error: String(e.message) }); }
@@ -78,6 +114,8 @@ for (const it of items) {
   for (const ip of it.iocs?.ips || []) if (isIp(ip)) badIps[ip] = `${it.actor || it.title} (${it.date})`;
   for (const d of it.iocs?.domains || []) phishDomains.add(String(d).toLowerCase());
   for (const ua of it.iocs?.userAgents || []) userAgents.add(String(ua));
+  for (const pk of it.iocs?.packages || []) spyware.packages[String(pk)] = it.actor || it.title;
+  for (const h of it.iocs?.sha256 || []) malwareHashes[String(h).toLowerCase()] = it.actor || it.title;
 }
 ok('Watch list', WATCH, items.length);
 
@@ -92,9 +130,9 @@ if (actors30.length) warnings.push({ level: 2, date: actors30[0].modified, title
 const feed = {
   app: 'BlackSwan', format: 1, updated: new Date(now).toISOString(), sources, warnings,
   phishDomains: [...phishDomains].slice(0, 60000), phishUrls: [...phishUrls].slice(0, 8000), badIps, userAgents: [...userAgents],
-  kev: kev.slice(0, 80), actors, watch: items.slice(0, 60),
+  kev: kev.slice(0, 80), actors, watch: items.slice(0, 60), spyware, malwareHashes,
 };
 fs.mkdirSync('www/intel', { recursive: true });
 fs.writeFileSync(OUT, JSON.stringify(feed));
-console.log(`Wrote ${OUT}: ${feed.phishDomains.length} phishing domains, ${feed.phishUrls.length} URLs, ${Object.keys(badIps).length} bad IPs, ${kev.length} KEV, ${actors.length} actors, ${items.length} watch items, ${warnings.length} warnings`);
+console.log(`Wrote ${OUT}: ${feed.phishDomains.length} phishing domains, ${feed.phishUrls.length} URLs, ${Object.keys(badIps).length} bad IPs, ${kev.length} KEV, ${actors.length} actors, ${items.length} watch items, ${warnings.length} warnings, ${Object.keys(spyware.packages).length} spy-app packages, ${Object.keys(spyware.certificates).length} spy-app certificates, ${Object.keys(malwareHashes).length} malware hashes`);
 for (const s of sources) console.log(`${s.ok ? 'OK  ' : 'FAIL'} ${s.name}${s.ok ? ` (${s.count})` : ` — ${s.error}`}`);

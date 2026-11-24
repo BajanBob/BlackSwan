@@ -24,6 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - name: Build feed
+        env: { ABUSE_CH_KEY: '${{ secrets.ABUSE_CH_KEY }}' }
         run: node scripts/update-intel.mjs
       - name: Publish feed
         run: |

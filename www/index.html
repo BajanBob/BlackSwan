@@ -9,6 +9,7 @@
   <meta name="author" content="BajanBob">
   <meta name="designer" content="Kammie Holder">
   <link rel="stylesheet" href="style.css">
+  <script src="vendor/jsQR.js" defer></script>
   <script type="module" src="app.js"></script>
   <script type="module" src="console.js"></script>
 </head>
@@ -138,7 +139,8 @@
         <p class="muted small">Paste a link from an email, text, chat, advert or QR code. BlackSwan checks lookalike brands and typosquats, hidden characters, redirect chains, shorteners, raw-IP hosts, abused domain endings, free hosting and risky downloads, then gives a phishing probability. Nothing is sent anywhere.</p>
         <label class="lbl" for="url">Link</label>
         <input class="in" id="url" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…">
-        <div class="row" style="margin-top:10px"><button class="btn primary" id="url-scan" type="button">Scan link</button><button class="btn" id="url-paste" type="button">Try a sample</button></div>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="url-scan" type="button">Scan link</button><label class="btn" for="qr-in" data-tip="Take or choose a photo of a QR code; BlackSwan reads the hidden link and checks it before you open it">Scan a QR code</label><input id="qr-in" type="file" accept="image/*" capture="environment" hidden><button class="btn" id="url-paste" type="button">Try a sample</button></div>
+        <p class="muted small" id="qr-info">Tip: in any app, tap Share → BlackSwan to check a link or message without copying it.</p>
       </section>
       <section class="card score-card" id="url-result" hidden>
         <div class="ring" id="url-ring"><span id="url-score">–</span><small>% risk</small></div>
@@ -152,9 +154,16 @@
     </section>
 
     <section class="panel" id="p-msg" hidden>
+      <section class="card" id="guard-card">
+        <h2>Real-time scam guard</h2>
+        <p class="muted small">Checks new texts, chats and emails the moment they arrive — even when BlackSwan is closed — and warns you straight away about links on today’s phishing list and takeover tricks (remote-control apps, “share the code”, gift cards, paste-and-run). It works on this phone only, sends nothing anywhere and keeps only the warnings. Android only: Apple doesn’t allow this on iPhone.</p>
+        <p class="big" id="sg-state">Off</p>
+        <div class="row"><button class="btn primary" id="sg-on" type="button">Turn on scam guard</button></div>
+        <ul class="findings" id="sg-list" style="margin-top:10px"></ul>
+      </section>
       <section class="card">
         <h2>Scan a message, email or pop-up</h2>
-        <p class="muted small">Detects remote-access takeovers, “paste and run” tricks (ClickFix), one-time-code theft, gift-card and crypto demands, invoice and bank-detail fraud, MFA-fatigue prompts, sextortion, delivery and investment scams — and scans every link inside.</p>
+        <p class="muted small">Paste one message or a whole conversation. Detects remote-access takeovers, “paste and run” tricks (ClickFix), one-time-code theft, gift-card and crypto demands, invoice and bank-detail fraud, MFA-fatigue prompts, sextortion, delivery and investment scams — and scans every link inside.</p>
         <label class="lbl" for="msg">Message text</label>
         <textarea class="in" id="msg" rows="7"></textarea>
         <div class="row" style="margin-top:10px"><button class="btn primary" id="msg-scan" type="button">Scan message</button><button class="btn" id="msg-paste" type="button">Try a sample</button></div>
@@ -253,6 +262,13 @@
         <p class="muted small" id="rot-info"></p>
       </section>
       <section class="card">
+        <h2>Has a password been leaked?</h2>
+        <p class="muted small">Checks a password against more than a billion passwords exposed in real data breaches (Have I Been Pwned). Your password never leaves the phone: only the first 5 characters of its SHA-1 fingerprint are sent, and the match is made here.</p>
+        <label class="lbl" for="pwn-in">Password to check</label><input class="in" id="pwn-in" type="password" autocomplete="off">
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="pwn-run" type="button">Check password</button><button class="btn" id="pwn-cur" type="button">Check the generated one</button></div>
+        <ul class="findings" id="pwn-out" style="margin-top:10px"></ul>
+      </section>
+      <section class="card">
         <h2>Fingerprint vault</h2>
         <p class="muted small" id="vault-info">Save a generated password inside your phone’s secure hardware (Android Keystore / iPhone Keychain). Showing it again needs your fingerprint or face.</p>
         <label class="lbl" for="vault-label">What is it for?</label><input class="in" id="vault-label" type="text" placeholder="Email account">
@@ -274,6 +290,24 @@
     </section>
 
     <section class="panel" id="p-scams" hidden>
+      <section class="card">
+        <h2>I think I’ve been scammed</h2>
+        <p class="muted small">Act fast — the first hour matters most. Choose what happened for step-by-step help. This works anywhere in the world; use your own bank’s and country’s contacts.</p>
+        <label class="lbl" for="rc-what">What happened?</label>
+        <select class="in" id="rc-what">
+          <option value="">Choose…</option>
+          <option value="money">I sent money or paid by card / bank transfer</option>
+          <option value="card">I gave my card details</option>
+          <option value="password">I typed a password on a fake site</option>
+          <option value="code">I shared a one-time code or approved a sign-in</option>
+          <option value="remote">I let someone control my computer or phone</option>
+          <option value="giftcrypto">I paid with gift cards or crypto</option>
+          <option value="sim">My phone suddenly lost signal / my number was moved</option>
+          <option value="spy">I think someone is spying on my phone</option>
+          <option value="sextortion">Someone is threatening to share private images</option>
+        </select>
+        <ol class="numbered" id="rc-steps"></ol>
+      </section>
       <section class="card"><label class="lbl" for="scam-q">Search the scam library</label><input class="in" id="scam-q" type="search" placeholder="remote access, code, invoice, crypto…"></section>
       <div id="scam-list" class="scams"></div>
     </section>

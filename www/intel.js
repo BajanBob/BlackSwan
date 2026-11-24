@@ -38,6 +38,6 @@ export async function refreshIntel(force = false) {
     try { const j = await fetchJson(`${REMOTE_FEED}?t=${Date.now()}`); use(j, 'online'); store.set('intel.checked', Date.now()); }
     catch (e) { if (!feed) { try { use(await fetchJson('intel/feed.json'), 'built in'); } catch { /* none */ } } if (feed) feed.error = String(e.message || e); }
   }
-  if (feed) announce(feed);
+  if (feed) { announce(feed); window.dispatchEvent(new Event('bs-intel')); }
   return feed;
 }

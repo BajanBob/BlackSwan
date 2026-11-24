@@ -148,6 +148,10 @@ export const MSG_RULES = [
   ['sim_swap', /\b(sim (swap|card)|port(ing)? (out|your number)|esim)\b/i, 1.8, 2, 'Mentions moving your phone number — SIM-swap attacks steal SMS codes.'],
   ['qr', /\b(scan (the|this) qr|qr code)\b/i, 1.2, 2, 'QR-code link — QR phishing hides the address until it’s too late.'],
   ['fake_update', /\b(browser|chrome|flash|java|driver|security)\s+(update|upgrade)\s+(required|needed|available)/i, 2.2, 3, 'Fake “update required” message — a common way to deliver malware.'],
+  ['task_scam', /\b(part[- ]time (job|work)|work from home|earn \$?\d+.{0,20}(per|a) (day|task|hour)|(like|rate|review) (videos|products|hotels|apps).{0,30}(earn|pay|commission)|daily (salary|commission)|recharge your account|complete (the )?tasks)\b/i, 2.8, 3, 'Task or job scam: paid for “simple tasks”, then asked to pay in to unlock earnings. Real jobs never ask you to pay.'],
+  ['platform_move', /\b(add|message|text|contact|chat with) me on (whatsapp|telegram|signal|line|wechat|viber)|(move|continue|talk) (to|on) (whatsapp|telegram|signal|line|wechat)|my (whatsapp|telegram) (is|number)\b/i, 1.6, 2, 'Asks to move the chat to another app — scammers leave platforms that can spot and ban them.'],
+  ['wrong_number', /\b(sorry,? wrong (number|person)|is this [A-Z]?[a-z]+\?|did i (text|message) the wrong)\b/i, 1.0, 2, '“Wrong number” opener — a common way romance and investment scams start a conversation.'],
+  ['romance', /\b(my love|my dear|sweetheart|soul ?mate|god (bless|sent) you|destiny brought|i('m| am) a (widow|widower|soldier|doctor|engineer) (on|in|at|working)|oil rig|un peacekeep)/i, 1.4, 2, 'Fast affection or a far-away “doctor, soldier or engineer” — classic romance-scam signs.'],
   ['consent', /\b(grant|allow) (access|permissions?)|consent to (the )?app|oauth\b/i, 1.2, 2, 'Asks you to grant an app access to your account (consent phishing).'],
 ];
 const URL_IN_TEXT = /\b((?:https?|hxxps?):\/\/[^\s<>"')\]]+|www\.[^\s<>"')\]]+|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|info|help|support|top|xyz|click|link|online|site|live|shop|io|co|me|app|zip|mov)(?:\/[^\s<>"')\]]*)?)/gi;
@@ -161,8 +165,12 @@ export function analyzeMsg(text) {
   z += W.msg.urlWeight * worst;
   if (/\+?\d[\d\s().-]{8,}\d/.test(t) && /support|help|call|contact/i.test(t)) F.push({ lv: 2, t: 'Contains a phone number to call. Only use numbers from the company’s official website or your card.' });
   if (!F.length) F.push({ lv: 1, t: 'No scam patterns found. If something still feels off, contact the sender through a channel you already trust.' });
+  // Conversation stages of social engineering: hook → trust → isolate → pressure → payment.
+  const STAGES = { hook: ['wrong_number', 'advance_fee', 'task_scam', 'delivery', 'investment', 'infected'], trust: ['romance', 'authority', 'callback'], isolate: ['platform_move', 'secrecy', 'remote_access'], pressure: ['urgency', 'account_threat', 'sextortion', 'mfa_fatigue'], payment: ['gift_cards', 'crypto', 'wire', 'bank_change', 'otp', 'credentials', 'clickfix'] };
+  const stages = Object.entries(STAGES).filter(([, ids]) => ids.some((id) => hits.includes(id))).map(([k]) => k);
+  if (stages.length >= 3) { z += 1.5; F.unshift({ lv: 4, t: `This conversation follows the scam playbook: ${stages.join(' → ')}. Stop replying and don’t send anything.` }); }
   const p = sigmoid(z);
-  return { ...done(p, F, `${urls.length} link${urls.length === 1 ? '' : 's'} found`, null), rules: hits };
+  return { ...done(p, F, `${urls.length} link${urls.length === 1 ? '' : 's'} found`, null), rules: hits, stages };
 }
 
 // ---------- statistics: running baselines and rare-event tests ----------

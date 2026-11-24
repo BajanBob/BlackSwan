@@ -15,6 +15,7 @@ const DAY = 86400e3;
 import { supportFor, expectedPatch, monthName, howToUpdate } from './support.js';
 import { installTips } from './tips.js';
 import { raise } from './bus.js';
+import { currentIntel } from './intel.js';
 installTips();
 
 // ---------- Capacitor (absent in a normal browser: then BlackSwan shows example results) ----------
@@ -40,6 +41,7 @@ const EX = {
     { package: 'com.fastcleaner.boost', name: 'Fast Cleaner Boost', installer: 'com.google.android.packageinstaller', accessibility: true, notificationListener: false, deviceAdmin: false, permissions: ['READ_SMS', 'SYSTEM_ALERT_WINDOW', 'RECORD_AUDIO'], installed: Date.now() - 20 * DAY },
     { package: 'com.whatsapp', name: 'WhatsApp', installer: 'com.android.vending', permissions: ['CAMERA', 'RECORD_AUDIO', 'READ_CONTACTS'], installed: Date.now() - 400 * DAY },
     { package: 'com.google.android.gms', name: 'Google Play services', installer: '', system: true, deviceAdmin: true, permissions: [] },
+    { package: 'com.systemservice', name: 'System Service', installer: '', notificationListener: true, permissions: ['READ_SMS', 'RECORD_AUDIO', 'ACCESS_BACKGROUND_LOCATION'], installed: Date.now() - 3 * DAY },
   ] },
   network: { operator: 'Example Mobile', simOperator: 'Example Mobile', country: '', data: '4G', voice: '4G', roaming: false, phonePermission: true, locationPermission: true, cells: [{ registered: true, gen: '4G', cell: 21345678, area: 1201, dbm: -96 }, { registered: false, gen: '2G', cell: 4410, area: 77, dbm: -88 }] },
 };
@@ -70,6 +72,12 @@ function flagApps(list) {
     const spy = (a.permissions || []).filter((p) => SPY_PERMS.has(p));
     const why = [];
     let level = 0;
+    // BlackSwan threat feed: known stalkerware / spy apps (by package or signing certificate) and known malware files.
+    const spyDb = currentIntel()?.spyware, mal = currentIntel()?.malwareHashes;
+    const spyName = spyDb && (spyDb.packages?.[a.package] || (a.certs || []).map((c) => spyDb.certificates?.[c]).find(Boolean));
+    if (spyName) { why.push(`matches known spy app “${spyName}” — it can read your messages, calls and location`); level = 3; }
+    else if (spyDb?.watchware?.[a.package]) { why.push(`is a monitoring app (“${spyDb.watchware[a.package]}”) that can track you`); level = Math.max(level, 2); }
+    if (a.sha256 && mal?.[a.sha256]) { why.push(`is a known malware file (${mal[a.sha256]})`); level = 3; }
     if (a.accessibility) { why.push('can read and control your screen (accessibility)'); level = Math.max(level, a.system ? 1 : 2); }
     if (a.deviceAdmin) { why.push('is a device administrator'); level = Math.max(level, a.system ? 0 : 2); }
     if (a.notificationListener) { why.push('can read all your notifications'); level = Math.max(level, a.system ? 0 : 1); }
@@ -125,6 +133,8 @@ function assess({ device: d, security: s, apps }, net) {
     // Protection items are listed in their own card; only serious ones also go in the main findings.
     if (s) for (const p of protectFindings(s, d)) { if (p[0] === 'risk') add(...p); else score -= p[4] || 0; }
     const flagged = flagApps(apps);
+    const spies = flagged.filter((a) => a.level >= 3);
+    if (spies.length) { add('risk', `Spy app or malware found: ${spies.map((a) => a.name).join(', ')}`, 'Matches BlackSwan’s list of known stalkerware or malware. If you didn’t install it, someone may be watching this phone: remove it, change your passwords from another device, and get help if you feel unsafe.', null, 40); for (const a of spies) raise(4, `Spy app or malware: ${a.name}`, a.why.join('; '), 'phone'); }
     const high = flagged.filter((a) => a.level >= 2);
     if (high.length) add('risk', `${high.length} app${high.length === 1 ? '' : 's'} with powerful access to check`, `${high.map((a) => a.name).join(', ')}. See “Apps with powerful access” below.`, null, Math.min(30, high.length * 15));
     else if (flagged.length) add('warn', `${flagged.length} app${flagged.length === 1 ? '' : 's'} worth a look`, 'See “Apps with powerful access” below.', null, Math.min(10, flagged.length * 3));
@@ -290,7 +300,7 @@ function render(data, net) {
   $('#apps-card').hidden = platform === 'ios';
   $('#apps').replaceChildren(...(flagged.length ? flagged.map((a) => el('li', { class: 'app' },
     el('div', { class: 'name', text: a.name }), el('div', { class: 'muted small', text: a.package }),
-    el('div', {}, el('span', { class: `tag ${a.level >= 2 ? 'risk' : 'warn'}`, text: a.level >= 2 ? 'Check this' : 'Worth a look' }), ...(a.permissions || []).map((p) => el('span', { class: 'tag', text: PERM_WORDS[p] || p }))),
+    el('div', {}, el('span', { class: `tag ${a.level >= 2 ? 'risk' : 'warn'}`, text: a.level >= 3 ? 'Spy app / malware' : a.level >= 2 ? 'Check this' : 'Worth a look' }), ...(a.permissions || []).map((p) => el('span', { class: 'tag', text: PERM_WORDS[p] || p }))),
     el('div', { class: 'why', text: `This app ${a.why.join('; ')}.` }),
     el('div', { class: 'row' }, el('button', { class: 'btn sm', type: 'button', text: 'App settings', onclick: () => openSettings('app', a.package) }),
       !a.system ? el('button', { class: 'btn sm', type: 'button', text: 'Uninstall', onclick: () => (demo ? toast('On your phone this asks Android to uninstall the app.') : Check.uninstall({ package: a.package }).catch((e) => toast(e.message))) }) : null)))
@@ -356,6 +366,7 @@ async function setReminders(on) {
 }
 
 $('#run').addEventListener('click', run);
+window.addEventListener('bs-intel', () => { if (last) render(last, lastNet); });
 $('#net').addEventListener('click', checkNetwork);
 $('#remind').addEventListener('change', (e) => { setReminders(e.target.checked); if (last) render(last, lastNet); });
 // Tap a service code to copy it, then paste into the dialler (copies only — never dials for you)

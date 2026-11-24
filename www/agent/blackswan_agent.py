@@ -6,7 +6,8 @@ Usage:  python3 blackswan_agent.py --baseline        (first run, trusted network
 ARTEX Shield (AI attack framework):
         python3 blackswan_agent.py --artex           also scan your own local network for exposed ARTEX consoles
         python3 blackswan_agent.py --logs FILE ...   check web/proxy/sign-in logs for ARTEX traffic
-        python3 blackswan_agent.py --secrets PATH .. scan folders and git history for leaked keys and tokens
+        python3 blackswan_agent.py --secrets PATH .. scan folders and git history for leaked keys
+Open ports: every run lists the ports this computer listens on and flags risky ones open to the network. and tokens
 Standard library only. Works on Windows, macOS and Linux."""
 import calendar, concurrent.futures, hashlib, ipaddress, json, os, platform, re, socket, ssl, subprocess, sys, time, urllib.request
 
@@ -287,7 +288,7 @@ def rhythm(times):
     return cycles, share, cycles >= 3 and share >= 0.6
 
 def check_artex_logs(paths):
-    by_ip, fails = {}, {}
+    by_ip, fails, ports = {}, {}, {}
     ua_hits = ip_hits = 0
     n = 0
     for path in paths:
@@ -312,6 +313,9 @@ def check_artex_logs(paths):
                     alert("HIGH", f"ARTEX TLS fingerprint in {os.path.basename(path)}")
                 if ip and t is not None:
                     by_ip.setdefault(ip, []).append(t)
+                fw = re.search(r"SRC=(\d{1,3}(?:\.\d{1,3}){3}).*?DPT=(\d+)", line) or re.search(r"\b(?:DROP|ALLOW|BLOCK|DENY)\s+(?:TCP|UDP)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+\S+\s+\d+\s+(\d+)", line, re.I)
+                if fw:
+                    ports.setdefault(fw.group(1), set()).add(int(fw.group(2)))
                 if ip and re.search(r'(login|signin|auth|token|password|reset|oauth)\S*\s+HTTP/[\d.]+"\s+(401|403|429)\b|AADSTS7000215|AADSTS7000222|"status"\s*:\s*(401|403|429)', line, re.I):
                     fails[ip] = fails.get(ip, 0) + 1
     if ua_hits > 5 or ip_hits > 5:
@@ -320,6 +324,9 @@ def check_artex_logs(paths):
         cycles, share, flagged = rhythm(ts)
         if flagged:
             alert("HIGH", f"Agent-like 'burst, then think' request rhythm from {ip}: {cycles} bursts with 25-31 s pauses")
+    for ip, ps in ports.items():
+        if len(ps) >= 15:
+            alert("CRITICAL" if len(ps) >= 100 else "HIGH", f"Port scan from {ip}: tried {len(ps)} different ports ({', '.join(map(str, sorted(ps)[:10]))}...). Block this address")
     for ip, c in fails.items():
         if c >= 20:
             alert("HIGH", f"Password / secret guessing from {ip}: {c} failed sign-ins")
@@ -389,6 +396,64 @@ def check_secrets(paths):
                             break
     print(f"Secret scan finished: {total} possible secrets")
 
+# ---------------------------------------------------------------- open-port audit
+RISKY_PORTS = {21: "FTP (passwords sent in clear)", 23: "Telnet (passwords sent in clear)", 135: "Windows RPC", 139: "Windows file sharing (NetBIOS)",
+               445: "Windows file sharing (SMB)", 1433: "SQL Server database", 2375: "Docker API without TLS (full control of the machine)",
+               3306: "MySQL database", 3389: "Remote Desktop", 5432: "PostgreSQL database", 5555: "Android debugging (ADB)", 5900: "VNC remote desktop",
+               5985: "Windows remote management", 6379: "Redis database", 8787: "ARTEX attack console", 9200: "Elasticsearch", 11211: "Memcached",
+               27017: "MongoDB database", 22: "SSH remote login"}
+
+def listening_ports():
+    """[(address, port, process)] for TCP ports this computer listens on."""
+    out = []
+    system = platform.system()
+    if system == "Windows":
+        for line in run(["netstat", "-ano", "-p", "TCP"]).splitlines():
+            m = re.match(r"\s*TCP\s+(\S+):(\d+)\s+\S+\s+LISTENING\s+(\d+)", line)
+            if m:
+                out.append((m.group(1), int(m.group(2)), "pid " + m.group(3)))
+    elif system == "Darwin":
+        for line in run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN"]).splitlines()[1:]:
+            parts = line.split()
+            m = re.search(r"(\S+):(\d+)\s*\(LISTEN\)", line)
+            if m and parts:
+                out.append((m.group(1), int(m.group(2)), parts[0]))
+    else:
+        txt = run(["ss", "-tlnpH"]) or run(["netstat", "-tlnp"])
+        if not txt:
+            # No ss/netstat: read the kernel's socket tables directly (state 0A = listening).
+            for fn, v6 in (("/proc/net/tcp", False), ("/proc/net/tcp6", True)):
+                try:
+                    with open(fn) as f:
+                        for row in f.readlines()[1:]:
+                            c = row.split()
+                            if len(c) > 3 and c[3] == "0A":
+                                hexip, hexport = c[1].split(":")
+                                if v6:
+                                    addr = "::" if set(hexip) == {"0"} else ("::1" if hexip.endswith("01000000") and set(hexip[:24]) == {"0"} else "v6")
+                                else:
+                                    addr = ".".join(str(int(hexip[i:i + 2], 16)) for i in (6, 4, 2, 0))
+                                out.append((addr, int(hexport, 16), ""))
+                except Exception:
+                    pass
+        for line in txt.splitlines():
+            m = re.search(r"\s(\[?[0-9a-fA-F:.*%]+\]?):(\d+)\s+\S+:\*?\S*\s*(.*)$", line)
+            if m:
+                proc = re.search(r'"([^"]+)"', m.group(3))
+                out.append((m.group(1).strip("[]"), int(m.group(2)), proc.group(1) if proc else ""))
+    return sorted(set(out), key=lambda x: x[1])
+
+def check_open_ports():
+    ports = listening_ports()
+    exposed = [(a, p, pr) for a, p, pr in ports if not (a.startswith("127.") or a in ("::1", "localhost") or a.startswith("::ffff:127."))]
+    print(f"This computer listens on {len(ports)} TCP ports ({len(exposed)} reachable from the network)")
+    for a, p, pr in exposed:
+        if p in RISKY_PORTS:
+            level = "CRITICAL" if p in (2375, 8787, 5555, 23) else "HIGH" if p in (3389, 445, 5900, 21, 6379, 27017, 9200, 11211) else "MEDIUM"
+            alert(level, f"Port {p} ({RISKY_PORTS[p]}) is open to the network on {a}{' by ' + pr if pr else ''}. Close it or limit it with the firewall unless you need it")
+        else:
+            alert("INFO", f"Port {p} open to the network on {a}{' by ' + pr if pr else ''}")
+
 def args_after(flag):
     if flag not in sys.argv:
         return []
@@ -413,6 +478,7 @@ def main():
     check_proxy()
     check_remote_tools()
     check_artex_local()
+    check_open_ports()
     if "--artex" in sys.argv:
         check_artex_lan()
     if "--logs" in sys.argv:

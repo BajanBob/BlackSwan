@@ -65,6 +65,11 @@ export function parseLine(line) {
     }
   }
   const aad = line.match(/AADSTS\d{5,8}/g); if (aad) r.aadsts = aad;
+  // Firewall logs: iptables/ufw "SRC=… DPT=…", Windows pfirewall.log "date time DROP TCP src dst sport dport", JSON dest_port.
+  let fw = line.match(/SRC=(\d{1,3}(?:\.\d{1,3}){3}).*?DPT=(\d+)/);
+  if (fw) { r.ip = fw[1]; r.dport = +fw[2]; }
+  else if ((fw = line.match(/\b(?:DROP|ALLOW|BLOCK|DENY)\s+(?:TCP|UDP)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+\S+\s+\d+\s+(\d+)/i))) { r.ip = fw[1]; r.dport = +fw[2]; r.blocked = /DROP|BLOCK|DENY/i.test(line); }
+  else if (j) { const dp = j.dest_port ?? j.dst_port ?? j.dport ?? j['destination.port']; if (dp != null) r.dport = +dp; }
   if (!r.signin && /\b(sign-?in|login|logon)\b/i.test(line)) { if (/\b(success|succeeded)\b/i.test(line)) r.signin = 'ok'; else if (/\b(fail|failure|failed|denied|invalid)\b/i.test(line) || r.aadsts) r.signin = 'fail'; }
   if (typeof r.ip === 'string') { const m = r.ip.match(IPV4); r.ip = m ? m[1] : r.ip; }
   return r;
@@ -99,7 +104,7 @@ export function analyzeLogs(text, { maxLines = 200000, extraIps = {}, extraUAs =
   for (const line of lines) {
     const r = parseLine(line);
     const ip = r.ip && IPV4.test(r.ip) ? r.ip : null;
-    if (ip) { if (!byIp.has(ip)) byIp.set(ip, { times: [], fails: 0, authFails: 0, accounts: new Set(), n: 0 }); const s = byIp.get(ip); s.n++; if (r.t != null) s.times.push(r.t); if (r.account) s.accounts.add(String(r.account).toLowerCase()); }
+    if (ip) { if (!byIp.has(ip)) byIp.set(ip, { times: [], fails: 0, authFails: 0, accounts: new Set(), n: 0, ports: new Map() }); const s = byIp.get(ip); s.n++; if (r.dport != null) s.ports.set(r.dport, Math.min(s.ports.get(r.dport) ?? Infinity, r.t ?? 0)); if (r.t != null) s.times.push(r.t); if (r.account) s.accounts.add(String(r.account).toLowerCase()); }
     if (r.ua && uaList.some((re) => re.test(r.ua))) uaHits.set(r.ua, (uaHits.get(r.ua) || 0) + 1);
     if (ip && badIps[ip]) ipHits.set(ip, (ipHits.get(ip) || 0) + 1);
     for (const j of ARTEX_IOCS.ja4) if (line.includes(j)) ja4Hits.add(j);
@@ -119,6 +124,11 @@ export function analyzeLogs(text, { maxLines = 200000, extraIps = {}, extraUAs =
   for (const [ip, s] of byIp) {
     const rh = rhythm(s.times);
     if (rh.flagged) add(3, `Agent-like request rhythm from ${ip}`, `${rh.cycles} bursts each followed by a 25–31 s pause (${Math.round(rh.share * 100)}% of its long gaps). That “burst, then think” pattern is how AI attack agents such as ARTEX behave.`);
+    if (s.ports.size >= 15) {
+      const ports = [...s.ports.keys()].sort((a, b) => a - b);
+      const risky = ports.filter((p) => [21, 22, 23, 25, 135, 139, 445, 1433, 3306, 3389, 5432, 5555, 5900, 6379, 8080, 8443, 8787, 9200, 27017].includes(p));
+      add(s.ports.size >= 100 ? 4 : 3, `Port scan from ${ip}`, `${ip} tried ${ports.length} different ports (${ports.slice(0, 8).join(', ')}${ports.length > 8 ? '…' : ''})${risky.length ? `, including ${risky.slice(0, 6).join(', ')}` : ''}. Someone is mapping your system for a way in — block this address.`);
+    }
     if (s.authFails >= 20) {
       const span = s.times.length > 1 ? (Math.max(...s.times) - Math.min(...s.times)) / 60e3 : 1;
       const rate = s.authFails / Math.max(1, span);

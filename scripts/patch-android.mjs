@@ -3,9 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 const pkgDir = 'android/app/src/main/java/bb/blackswan/app';
 fs.mkdirSync(pkgDir, { recursive: true });
-fs.copyFileSync('native/android/bb/blackswan/app/GuardCheckPlugin.java', path.join(pkgDir, 'GuardCheckPlugin.java'));
+for (const f of ['GuardCheckPlugin.java', 'BlackSwanNotificationService.java']) fs.copyFileSync(`native/android/bb/blackswan/app/${f}`, path.join(pkgDir, f));
 fs.writeFileSync(path.join(pkgDir, 'MainActivity.java'), `package bb.blackswan.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
@@ -14,6 +15,21 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(GuardCheckPlugin.class);
         super.onCreate(savedInstanceState);
+        takeShared(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        takeShared(intent);
+    }
+
+    /** "Share → BlackSwan" from any app: keep the shared link or message for the app to scan. */
+    private void takeShared(Intent i) {
+        if (i != null && Intent.ACTION_SEND.equals(i.getAction()) && "text/plain".equals(i.getType())) {
+            String t = i.getStringExtra(Intent.EXTRA_TEXT);
+            if (t != null) GuardCheckPlugin.sharedText = t;
+        }
     }
 }
 `);
@@ -25,6 +41,24 @@ for (const perm of ['INTERNET', 'READ_PHONE_STATE', 'ACCESS_FINE_LOCATION', 'ACC
 }
 m = m.replace('</manifest>', '    <uses-feature android:name="android.hardware.telephony" android:required="false" />\n    <uses-feature android:name="android.hardware.location" android:required="false" />\n</manifest>');
 m = m.replace(/android:allowBackup="true"/, 'android:allowBackup="false"');
+// BlackSwan: "Share → BlackSwan" for links and messages, and the real-time scam guard (notification access, opt-in).
+if (!m.includes('android.intent.action.SEND')) {
+  const actEnd = m.indexOf('</activity>');
+  m = m.slice(0, actEnd) + `    <intent-filter android:label="Check with BlackSwan">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        ` + m.slice(actEnd);
+}
+if (!m.includes('BlackSwanNotificationService')) {
+  m = m.replace('</application>', `    <service android:name=".BlackSwanNotificationService" android:label="BlackSwan scam guard" android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+        </service>
+    </application>`);
+}
+if (!/android:launchMode=/.test(m)) m = m.replace(/(<activity[^>]*android:name="\.MainActivity")/, '$1 android:launchMode="singleTask"');
 if (!m.includes('usesCleartextTraffic')) m = m.replace('<application', '<application android:usesCleartextTraffic="false"');
 fs.writeFileSync(p, m);
 const vars = 'android/variables.gradle';

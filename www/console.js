@@ -378,3 +378,93 @@ const DAILY_TIPS = [
   'When in doubt, stop. Call the company on the number from its official website or your card.',
 ];
 { const d = Math.floor(Date.now() / 86400e3); $('#tipday').textContent = `Today’s tip: ${DAILY_TIPS[d % DAILY_TIPS.length]}`; }
+
+// ---------- QR codes: read the hidden link from a photo, then scan it ----------
+$('#qr-in').addEventListener('change', async (e) => {
+  const f = e.target.files?.[0]; e.target.value = '';
+  if (!f) return;
+  if (!window.jsQR) return toast('QR reader not loaded.');
+  try {
+    const bmp = await createImageBitmap(f);
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    const ctx = c.getContext('2d'); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+    const img = ctx.getImageData(0, 0, c.width, c.height);
+    const code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+    if (!code?.data) { $('#qr-info').textContent = 'No QR code found in that photo. Try again closer and in good light.'; return; }
+    $('#qr-info').textContent = `The QR code contains: ${code.data.slice(0, 200)}`;
+    if (/^(https?:|www\.)/i.test(code.data) || /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(code.data)) { $('#url').value = code.data; scanUrl(); }
+    else { $('#msg').value = code.data; show('msg'); scanMsg(); }
+  } catch (err) { toast(`Couldn’t read the photo: ${err.message || err}`); }
+});
+
+// ---------- Share → BlackSwan (Android) ----------
+async function takeShared() {
+  if (!Check?.sharedText) return;
+  try {
+    const { text } = await Check.sharedText();
+    if (!text) return;
+    const t = text.trim();
+    if (/^\S+$/.test(t) && /^(https?:\/\/|www\.)/i.test(t)) { show('links'); $('#url').value = t; scanUrl(); }
+    else { show('msg'); $('#msg').value = t; scanMsg(); }
+  } catch { /* nothing shared */ }
+}
+takeShared();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) takeShared(); });
+
+// ---------- Real-time scam guard (Android notification access) ----------
+async function guardStatus() {
+  if (!Check?.scamGuardStatus) { $('#sg-state').textContent = platform === 'ios' ? 'Not available on iPhone' : 'Available in the Android app'; $('#sg-on').hidden = true; return; }
+  const { enabled } = await Check.scamGuardStatus().catch(() => ({ enabled: false }));
+  $('#sg-state').textContent = enabled ? 'On — watching new messages' : 'Off';
+  $('#sg-state').style.color = enabled ? 'var(--ok)' : '';
+  $('#sg-on').textContent = enabled ? 'Scam guard settings' : 'Turn on scam guard';
+  const { items = [] } = await Check.pendingThreats().catch(() => ({}));
+  const seen = store.get('sg.log', []);
+  for (const it of items) {
+    raise(4, `Scam message in ${it.app}`, `${(it.reasons || []).join('; ')}`, 'scam guard');
+    seen.unshift({ t: it.t, app: it.app, reasons: it.reasons, urls: it.urls });
+  }
+  store.set('sg.log', seen.slice(0, 30));
+  $('#sg-list').innerHTML = seen.length ? seen.map((x) => li(4, `${x.app} · ${new Date(x.t).toLocaleString()}`, `${(x.reasons || []).join('; ')}${x.urls?.length ? ` · links: ${x.urls.slice(0, 3).join(', ')}` : ''}`)).join('') : '<li class="muted small">No scam messages caught yet.</li>';
+}
+$('#sg-on').addEventListener('click', () => { Check?.openScamGuardSettings?.(); toast('Find BlackSwan in the list and allow it, then come back.'); });
+guardStatus();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) guardStatus(); });
+// Give the guard today's phishing list so it works while BlackSwan is closed.
+window.addEventListener('bs-intel', () => { const f = currentIntel(); if (Check?.setBlocklist && f?.phishDomains?.length) Check.setBlocklist({ domains: f.phishDomains.slice(0, 60000) }).catch(() => {}); });
+
+// ---------- Leaked-password check (Have I Been Pwned, k-anonymity) ----------
+async function pwned(pw) {
+  const h = [...new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(pw)))].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const r = await fetch(`https://api.pwnedpasswords.com/range/${h.slice(0, 5)}`, { headers: { 'Add-Padding': 'true' } });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const line = (await r.text()).split('\n').find((l) => l.startsWith(h.slice(5)));
+  return line ? Number(line.split(':')[1]) || 0 : 0;
+}
+async function pwnCheck(pw) {
+  if (!pw) return toast('Type a password first.');
+  $('#pwn-out').innerHTML = li(1, 'Checking…', '');
+  try {
+    const n = await pwned(pw);
+    $('#pwn-out').innerHTML = n > 0 ? li(4, `Leaked ${n.toLocaleString()} time${n > 1 ? 's' : ''}`, 'This password is in criminals’ lists and will be tried first in any attack. Stop using it everywhere and change it now.') : li(1, 'Not found in any known breach', 'Good. Keep it unique to one account.');
+    if (n > 0) raise(3, 'Leaked password in use', `Found ${n} times in breach data`, 'guard');
+  } catch (e) { $('#pwn-out').innerHTML = li(2, 'Couldn’t check right now', `${e.message || e}. Check your internet connection (the web preview blocks this; the apps can check).`); }
+  $('#pwn-in').value = '';
+}
+$('#pwn-run').addEventListener('click', () => pwnCheck($('#pwn-in').value));
+$('#pwn-cur').addEventListener('click', () => pwnCheck(current));
+
+// ---------- Scam recovery assistant ----------
+const RECOVER = {
+  money: ['Call your bank or card company now on the number on your card or official website — not any number the scammer gave you. Ask them to stop or recall the payment and freeze the account.', 'Write down everything: amounts, times, account numbers, names, phone numbers, website addresses. Take screenshots before the scammer deletes chats.', 'Report it to the police or your country’s cybercrime or fraud reporting service; banks often need a report number.', 'Expect “recovery” offers: anyone promising to get your money back for a fee is a second scam.', 'Change any passwords you shared, and watch your statements for the next few months.'],
+  card: ['Block or freeze the card now in your banking app, or call the number on the back of the card.', 'Ask for a new card number and to cancel any pending payments you don’t recognise.', 'Check recent transactions and dispute any you didn’t make.', 'If you also typed a password, follow “I typed a password on a fake site”.'],
+  password: ['From a device you trust, change that password now — and on every other account that used the same password.', 'Turn on two-step sign-in (an authenticator app or passkey, not SMS if you can avoid it).', 'Sign out all other sessions in the account’s security settings and check recovery email and phone number haven’t been changed.', 'Check the account’s mail rules or forwarding (attackers add them to keep reading your email).', 'Use BlackSwan’s leaked-password check and generator to pick a new unique password.'],
+  code: ['Change the password of the account the code was for, straight away, from a device you trust.', 'Sign out all other devices and sessions in that account’s security settings.', 'If it was a bank or payment code, call your bank now on the official number and ask them to block the transaction.', 'If it was a WhatsApp or Telegram code, re-register on your phone and turn on two-step verification (a PIN).'],
+  remote: ['Disconnect from the internet now (turn off Wi-Fi, unplug the cable, or switch on Airplane mode).', 'Uninstall the remote-control app they had you install (AnyDesk, TeamViewer, ScreenConnect, etc.).', 'From a different, trusted device, change your email and banking passwords and call your bank.', 'Run a full scan with a reputable security product, or have the computer checked/reinstalled by someone you trust — they may have left other software behind.', 'Run the BlackSwan desktop checker, which looks for remote-access tools still running.'],
+  giftcrypto: ['Contact the gift-card company straight away with the card numbers and receipts — some can freeze unused balances.', 'For crypto, contact the exchange you sent from and report the receiving wallet address; transfers can rarely be reversed, but exchanges can flag the scammer.', 'Report to the police or your country’s fraud service with all details and screenshots.', 'Beware of “recovery agents” who contact you afterwards — they are scammers too.'],
+  sim: ['From another phone, call your mobile carrier immediately: say you suspect a SIM swap or number transfer and ask them to stop it and lock your account with a PIN.', 'Change your email password first (it resets everything else), then banking and social accounts.', 'Call your bank: codes sent by text may now be going to the criminal.', 'Move important accounts from text-message codes to an authenticator app or passkey.'],
+  spy: ['If you feel unsafe, think before removing anything: the person may notice. Reach out to a local support service or someone you trust first.', 'Run BlackSwan’s Phone check: it lists apps with powerful access and matches known spy apps.', 'Change your Google / Apple / Microsoft account password from a device the other person has never touched, and remove unknown devices from the account.', 'Check for unknown device administrators, accessibility services and VPN or certificate profiles, and remove them.', 'If the phone may be badly compromised, back up photos and contacts only, then factory reset and set it up as new with new passwords.'],
+  sextortion: ['Stop replying and don’t pay — paying usually leads to more demands.', 'Keep evidence: screenshots of messages, usernames, payment details. Then block the person.', 'Report the account to the platform, and report to the police. If the images involve someone under 18, report to the police and to the NCMEC Take It Down service or your national hotline.', 'Tell someone you trust. You are not alone, and this is a crime against you.'],
+};
+$('#rc-what').addEventListener('change', (e) => { $('#rc-steps').innerHTML = (RECOVER[e.target.value] || []).map((s) => `<li>${esc(s)}</li>`).join(''); });
