@@ -121,3 +121,5 @@ html[data-threat=red] .threat-frame { border-width: 6px; animation: pulse 1.6s e
 @keyframes pulse { 50% { border-color: transparent; } }
 .btn.lv-green { border-color: #1fbf7a; } .btn.lv-amber { border-color: #ffb020; } .btn.lv-red { border-color: #ff2d4a; }
 @media (prefers-reduced-motion: reduce) { .threat-flash.go { animation: none; opacity: .3; } html[data-threat=red] .threat-frame { animation: none; } }
+
+.tipday { margin: 4px 0 12px; padding: 10px 12px; border-left: 4px solid var(--accent); background: #0a131c; border-radius: 0 10px 10px 0; font-size: .95rem; }

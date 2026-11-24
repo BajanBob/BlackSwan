@@ -18,7 +18,7 @@
     <div><h1>BlackSwan</h1><p class="sub">Alert and defence system · built on GuardYourPhone</p></div>
   </header>
   <div class="sticky">
-  <div id="threat-bar" class="threat-bar" role="status" aria-live="polite"><b>THREAT LEVEL GREEN</b><span>Level 3 · All clear</span><button id="threat-ack" type="button" hidden>Acknowledge</button></div>
+  <div id="threat-bar" class="threat-bar" role="status" aria-live="polite" data-tip="Green: all clear · Amber: something to check · Red: danger aimed at you. Alerts older than 24 hours stop counting."><b>THREAT LEVEL GREEN</b><span>Level 3 · All clear</span><button id="threat-ack" type="button" hidden>Acknowledge</button></div>
   <nav class="tabs" id="tabs" aria-label="Sections">
     <button type="button" data-t="phone" aria-current="page">Phone</button>
     <button type="button" data-t="links">Links</button>
@@ -243,7 +243,7 @@
           <label class="switch"><input type="checkbox" id="o-l" checked><span>Small letters</span></label>
           <label class="switch"><input type="checkbox" id="o-d"><span>Digits</span></label>
           <label class="switch"><input type="checkbox" id="o-s"><span>Symbols</span></label>
-          <label class="switch"><input type="checkbox" id="o-a" checked><span>No look-alikes (I l 1 O 0)</span></label>
+          <label class="switch" data-tip="Leave out letters and numbers that look alike, so passwords are easy to read and type"><input type="checkbox" id="o-a" checked><span>No look-alikes (I l 1 O 0)</span></label>
         </div>
         <div class="row">
           <label class="lbl inline">Length <input class="in short" id="len" type="number" min="8" max="64" value="15"></label>
@@ -265,8 +265,8 @@
         <p class="muted small" id="gate-info">Set a passphrase to lock BlackSwan. After 3 wrong tries the wait doubles each time (30 s up to 1 hour). Failure bursts are tested against your normal typo rate with a Poisson model and raised as an attack alert. With a fingerprint enrolled, the right passphrase alone is not enough.</p>
         <label class="lbl" for="g-pass">Passphrase</label><input class="in" id="g-pass" type="password" autocomplete="new-password">
         <div class="row" style="margin-top:10px"><button class="btn" id="g-set" type="button">Set passphrase</button><button class="btn" id="g-use" type="button">Use generated</button><button class="btn primary" id="g-try" type="button">Test unlock</button></div>
-        <label class="switch"><input type="checkbox" id="g-applock"><span>Lock BlackSwan when it opens</span></label>
-        <label class="switch"><input type="checkbox" id="g-wipe"><span>Erase the vault after 10 failed unlocks in a row</span></label>
+        <label class="switch" data-tip="Ask for the passphrase (and fingerprint) every time BlackSwan opens"><input type="checkbox" id="g-applock"><span>Lock BlackSwan when it opens</span></label>
+        <label class="switch" data-tip="Self-destruct: deletes saved passwords if someone keeps guessing"><input type="checkbox" id="g-wipe"><span>Erase the vault after 10 failed unlocks in a row</span></label>
         <h3>Fingerprint second factor</h3>
         <p class="muted small" id="fp-info"></p>
         <div class="row"><button class="btn" id="fp-enrol" type="button">Turn on fingerprint</button><button class="btn" id="fp-test" type="button">Test</button><button class="btn" id="fp-off" type="button">Turn off</button></div>
@@ -282,6 +282,7 @@
       <section class="card">
         <div class="row spread"><h2>Daily global threat briefing</h2><button class="btn sm" id="intel-run" type="button">Check now</button></div>
         <p class="muted small" id="intel-when">BlackSwan checks worldwide threat feeds once a day: live phishing sites, botnet servers, newly exploited software holes, threat-group updates and its own watch list of new attackers and AI attack tools such as ARTEX.</p>
+        <p class="tipday" id="tipday" data-tip="A new safety tip every day"></p>
         <ul class="findings" id="intel-warn"></ul>
       </section>
       <section class="card"><h2>Software holes being exploited now</h2><p class="muted small">From the CISA Known Exploited Vulnerabilities list (worldwide software). If you use one of these products, update it today.</p><ul class="findings" id="intel-kev"></ul></section>
@@ -293,8 +294,8 @@
       <section class="card">
         <div class="row spread"><h2>Alert log</h2><div class="row"><button class="btn sm" id="al-export" type="button">Export for MATLAB</button><button class="btn sm" id="al-clear" type="button">Clear</button></div></div>
         <div class="opts">
-          <label class="switch"><input type="checkbox" id="set-sound" checked><span>Sound alerts</span></label>
-          <label class="switch"><input type="checkbox" id="set-flash" checked><span>Flash the screen</span></label>
+          <label class="switch" data-tip="Chime for green, two beeps for amber, siren for red"><input type="checkbox" id="set-sound" checked><span>Sound alerts</span></label>
+          <label class="switch" data-tip="Flash the whole screen in the alert colour"><input type="checkbox" id="set-flash" checked><span>Flash the screen</span></label>
         </div>
         <div class="row" style="margin-bottom:10px"><button class="btn sm lv-green" data-test="green" type="button">Test green</button><button class="btn sm lv-amber" data-test="amber" type="button">Test amber</button><button class="btn sm lv-red" data-test="red" type="button">Test red</button></div>
         <ul class="findings" id="al-list"></ul>

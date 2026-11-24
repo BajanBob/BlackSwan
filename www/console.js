@@ -343,3 +343,38 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) inte
 if (Notes) {
   Notes.schedule({ notifications: [{ id: 800, title: 'BlackSwan daily threat briefing', body: 'New global warnings and threat actors are checked every day. Open BlackSwan to see today’s.', schedule: { on: { hour: 8, minute: 0 }, allowWhileIdle: true } }] }).catch(() => {});
 }
+
+// ---------- safety tip of the day ----------
+const DAILY_TIPS = [
+  'Type your bank’s address yourself or use a bookmark — never follow a link in a message to log in.',
+  'Nobody genuine will ask for the code that was just texted to you. Not your bank, not support, not a friend.',
+  'If a caller asks you to install AnyDesk, TeamViewer or any “support” app, hang up.',
+  'A web page telling you to press Win + R and paste something is an attack, every time.',
+  'Gift cards are for gifts. Anyone demanding payment in gift cards is a scammer.',
+  'Turn on automatic updates on your phone, computer and apps — most attacks use holes that are already fixed.',
+  'Use a different password for every account; let BlackSwan make them and a password manager remember them.',
+  'Switch to passkeys where offered: they can’t be phished because they only work on the real website.',
+  'On public Wi-Fi, use mobile data or a VPN you trust for banking and email.',
+  'Ask your mobile carrier for a PIN on your account to stop SIM-swap fraud.',
+  'Restart your phone daily: it clears spyware that lives only in memory.',
+  'Check “Devices” in your Google, Apple and Microsoft accounts and remove any you don’t recognise.',
+  'A change of bank details by email is always checked by phone, on a number you already have.',
+  'Never install a certificate or “profile” someone sends you — it lets them read your secure traffic.',
+  'Turn off “Allow 2G” on Android: fake mobile towers force phones down to 2G.',
+  'Developers: never put keys or passwords in code. If one leaked, replace it — deleting the commit is not enough.',
+  'Scan QR codes with care: the link is hidden until you open it. Check it in BlackSwan first.',
+  'Urgency is a red flag. Real banks and governments give you time to check.',
+  'Keep your recovery phrase for crypto offline. Anyone asking for it is stealing.',
+  'Lock your SIM with a PIN so a stolen SIM can’t be used to receive your codes.',
+  'Before you click “Allow” for an app to access your account, check who made it.',
+  'If you approved a sign-in prompt you didn’t start, change your password straight away.',
+  'Business owners: rate-limit login pages — AI attack tools guess thousands of passwords a minute.',
+  'Keep test and live systems on different passwords; attackers walk from one to the other.',
+  'Download software only from the maker’s own site or the official app store, not from ads.',
+  'Show file extensions on your computer so invoice.pdf.exe can’t hide.',
+  'Back up your important files offline; ransomware can’t encrypt what it can’t reach.',
+  'Use Airplane mode in sensitive meetings: it stops the phone’s radio talking to any tower.',
+  'Turn on Advanced Protection (Android) or Lockdown Mode (iPhone) if you could be targeted.',
+  'When in doubt, stop. Call the company on the number from its official website or your card.',
+];
+{ const d = Math.floor(Date.now() / 86400e3); $('#tipday').textContent = `Today’s tip: ${DAILY_TIPS[d % DAILY_TIPS.length]}`; }
