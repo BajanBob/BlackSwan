@@ -45,7 +45,18 @@ The whole screen shows BlackSwan’s threat level, with sound and vibration:
 
 ## Build
 
-Every push to `main` runs the tests (`npm test`, agent compile check), builds the app and publishes a GitHub Release `v<version>` with `BlackSwan.apk` and `BlackSwan-iPhone-unsigned.ipa` (sign with an Apple Developer account). Add `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as repository secrets to sign the APK with your permanent key. Raise `version` in `package.json` for each release.
+Every push to `main` runs the tests (`npm test`, agent compile check), builds every edition and publishes a GitHub Release `v<version>` with:
+
+| File | For |
+|---|---|
+| `BlackSwan.apk` | Android |
+| `BlackSwan-iPhone-unsigned.ipa` | iPhone (sign with an Apple Developer account) |
+| `BlackSwan-Windows-portable.exe` | Windows: single file, no install |
+| `BlackSwan-Windows.zip` | Windows desktop: unzip and run `BlackSwan.exe` |
+| `BlackSwan-Linux.AppImage`, `BlackSwan-Linux.tar.gz` | Linux desktop |
+| `blackswan-agent-windows.exe`, `blackswan-agent-linux` | Host agent as a single executable (no Python needed) |
+
+The desktop editions (`desktop/`, Electron) run the same app from a private server on 127.0.0.1. The Windows files are not code-signed yet, so Windows SmartScreen will warn the first time (More info → Run anyway); a code-signing certificate removes that. Add `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as repository secrets to sign the APK with your permanent key. Raise `version` in `package.json` for each release.
 
 Preview in a browser: `npx serve www` (phone results are examples; the other tools work fully).
 

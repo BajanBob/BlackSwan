@@ -106,9 +106,64 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: bs-ios, path: BlackSwan-iPhone-unsigned.ipa }
 
+  desktop:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix: { os: [windows-latest, ubuntu-latest] }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Prepare the desktop app
+        shell: bash
+        run: |
+          cp -r www desktop/www
+          rm -rf desktop/www/agent/__pycache__
+          cp assets/icon-only.png desktop/icon.png
+          cd desktop
+          npm pkg set version="$(node -p "require('../package.json').version")"
+          npm install --no-audit --no-fund
+      - name: Build (Windows portable .exe + .zip, or Linux AppImage + .tar.gz)
+        working-directory: desktop
+        shell: bash
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+        run: npx electron-builder --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bs-desktop-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            desktop/dist/BlackSwan-Windows.zip
+            desktop/dist/BlackSwan-Windows-portable.exe
+            desktop/dist/BlackSwan-Linux.AppImage
+            desktop/dist/BlackSwan-Linux.tar.gz
+
+  agent:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix: { os: [windows-latest, ubuntu-latest] }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Build the host agent as one executable
+        shell: bash
+        run: |
+          pip install --quiet pyinstaller
+          NAME=blackswan-agent-${{ runner.os == 'Windows' && 'windows' || 'linux' }}
+          pyinstaller --onefile --console --name "$NAME" www/agent/blackswan_agent.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bs-agent-${{ runner.os }}
+          path: dist/blackswan-agent-*
+
   release:
-    needs: [android, ios]
-    if: always() && github.ref == 'refs/heads/main' && (needs.android.result == 'success' || needs.ios.result == 'success')
+    needs: [android, ios, desktop, agent]
+    if: always() && github.ref == 'refs/heads/main' && (needs.android.result == 'success' || needs.ios.result == 'success' || needs.desktop.result == 'success' || needs.agent.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -129,4 +184,10 @@ jobs:
             |---|---|
             | **BlackSwan.apk** | Android phones: download, open, and allow "install from this source" when asked |
             | **BlackSwan-iPhone-unsigned.ipa** | iPhone: must be signed with an Apple Developer account before it can be installed |
+            | **BlackSwan-Windows-portable.exe** | Windows 10/11: one file, double-click to run (no install). Windows may warn that it is from an unknown publisher: More info → Run anyway |
+            | **BlackSwan-Windows.zip** | Windows desktop: unzip anywhere and run BlackSwan.exe |
+            | **BlackSwan-Linux.AppImage** | Linux: make it executable (chmod +x) and run it |
+            | **BlackSwan-Linux.tar.gz** | Linux: unpack and run ./blackswan |
+            | **blackswan-agent-windows.exe** | Windows host agent (command line): deep network, ARTEX and leaked-secret checks |
+            | **blackswan-agent-linux** | Linux host agent (command line): chmod +x, then ./blackswan-agent-linux --artex |
           files: artifacts/*

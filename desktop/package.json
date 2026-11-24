@@ -1,0 +1,54 @@
+{
+  "name": "blackswan-desktop",
+  "productName": "BlackSwan",
+  "version": "0.0.0",
+  "description": "BlackSwan alert and defence system (desktop)",
+  "author": "BajanBob",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "main.cjs",
+  "scripts": {
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "bb.blackswan.desktop",
+    "productName": "BlackSwan",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "icon.png",
+      "www/**/*"
+    ],
+    "icon": "icon.png",
+    "win": {
+      "target": [
+        "portable",
+        "zip"
+      ],
+      "artifactName": "BlackSwan-Windows.${ext}"
+    },
+    "portable": {
+      "artifactName": "BlackSwan-Windows-portable.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "artifactName": "BlackSwan-Linux.${ext}",
+      "category": "Utility",
+      "maintainer": "BajanBob",
+      "executableName": "blackswan"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BajanBob/BlackSwan.git"
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "blackswan",
   "productName": "BlackSwan",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "BlackSwan: commercial alert and defence system against phishing, fake websites, redirects, man-in-the-middle attacks, takeover scams and intrusion. Built on GuardYourPhone.",
   "private": true,
   "license": "UNLICENSED",
