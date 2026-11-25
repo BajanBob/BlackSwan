@@ -239,6 +239,18 @@
           <li>Rate-limit sign-in, password-reset and API endpoints; ARTEX campaigns ran thousands of guesses a minute.</li>
           <li>Run the desktop agent with <span class="code">--artex</span> on your network to find exposed ARTEX consoles and booby-trapped copies.</li>
         </ol>
+        <h3 style="margin-top:14px">Pre-emptive hardening</h3>
+        <p class="muted small">ARTEX doesn’t need new flaws: it finds what is already exposed, at machine speed. Close these doors before it arrives.</p>
+        <ol class="numbered small">
+          <li><b>Identity:</b> phishing-resistant MFA (passkeys or security keys) for admins and remote access; block legacy sign-in; lock out per account as well as per address.</li>
+          <li><b>App identities:</b> review every app, service principal and consent; remove secrets and owners added since August 2026 that nobody can explain.</li>
+          <li><b>Keys:</b> rotate long-lived cloud keys, keep secrets out of logs and code, and use short-lived tokens.</li>
+          <li><b>Exposure:</b> take admin, CI/CD, backup and hypervisor consoles off the internet; remove source maps, .env and config files from live sites; patch everything on CISA’s exploited list first.</li>
+          <li><b>Servers:</b> block outbound traffic from servers to callback and tunnel services (webhook.site, interactsh, ngrok, trycloudflare) and to AI model services they don’t need; enforce IMDSv2 on AWS; reject unsigned SAML.</li>
+          <li><b>Least privilege:</b> database accounts can’t run commands or write files; only a few accounts can read LAPS passwords.</li>
+          <li><b>Deception:</b> plant decoy keys and accounts that nothing legitimate uses. AI agents grab them eagerly, and any use is a certain alarm.</li>
+          <li><b>Response:</b> disable a suspicious app or key automatically, then confirm; export sign-in and audit logs before deleting anything.</li>
+        </ol>
       </section>
     </section>
 

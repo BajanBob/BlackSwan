@@ -2,22 +2,31 @@
 // in web, proxy, firewall and sign-in logs. Pure functions; mirrored by the desktop agent (--logs) and matlab/bs_artex_rhythm.m.
 //
 // Indicators come from public reporting by Microsoft Threat Intelligence, Unit 42, CrowdStrike, Censys, BadByte and
-// StepSecurity (July–November 2026). Attacker infrastructure changes quickly: treat IP matches as leads, not proof.
+// StepSecurity (July–November 2026), plus Sophos, Cisco Talos, ThreatDefence, SOCRadar, Elastic and CERT-In (November 2026).
+// Attacker infrastructure changes quickly: treat IP matches as leads, not proof. The behaviour checks (rhythm, tool mixing,
+// config harvesting, callbacks, lateral fan-out) keep working when ARTEX operators change servers and user agents.
 
 export const ARTEX_IOCS = {
-  updated: '2026-11-12',
-  userAgents: [/artex-enrich\/\d/i, /\bnorma\/0\.\d/i, /compatible;\s*artex\/\d/i, /compatible;\s*infra-hunt\/\d/i, /verify-911-probe\/\d/i, /\bartex\b/i],
+  updated: '2026-11-25',
+  userAgents: [/artex-enrich\/\d/i, /\bnorma\/0\.\d/i, /compatible;\s*artex\/\d/i, /compatible;\s*infra-hunt\/\d/i, /verify-911-probe\/\d/i, /artex-pentest\/\d/i, /\bartex\b/i],
   ips: {
     '91.92.240.238': 'ARTEX server (Storm-3358)', '85.11.168.45': 'ARTEX server (Storm-3358)', '178.16.54.129': 'ARTEX server (Storm-3358)', '31.77.229.35': 'ARTEX server (Storm-3358)',
     '199.19.77.84': 'App sign-ins with credentials found on GitHub', '65.87.223.26': 'Recon and exploit attempts on AI workloads', '157.22.126.128': 'Recon and exploit attempts on AI workloads',
     '144.172.64.60': 'Storm-0940 infrastructure', '144.172.64.99': 'Storm-0940 infrastructure', '144.172.64.128': 'Storm-0940 infrastructure',
     '38.244.50.120': 'ARTEX server (finance attacks)', '154.64.252.77': 'ARTEX agent traffic', '183.1.65.106': 'ARTEX agent traffic', '95.169.20.166': 'ARTEX agent traffic', '203.190.1.60': 'ARTEX agent traffic',
+    '43.240.29.11': 'CyberStrikeAI attack-agent server (seen alongside ARTEX)',
   },
   ja4: ['t13d3013h1_1d37bd780c83_8537cf56674e', 't13d3013h2_1d37bd780c83_8537cf56674e', 't13d3014h1_1d37bd780c83_5ae85263eb3b'],
   dockerImages: ['tomicdd/artex', 'congdonglinux/artex'],
   binarySha256: 'd5070f52262effe216b840711343bff8f2787f39208d887d8dfd9c673f8d1573',
   consolePort: 8787,
   consoleTitles: [/^\s*ARTEX/i, /自主渗透测试控制台/],
+  // Working files ARTEX agents leave on hosts they control (Sophos, SOCRadar): artx* in temp folders, C:\\ProgramData\\artx5v\\.
+  hostArtifacts: /[\\/]ProgramData[\\/]artx5v\b|[\\/]Temp[\\/]artx[\w.-]*|[\\/]tmp[\\/]artx[\w.-]*/i,
+  // Out-of-band callback and tunnel services ARTEX agents use to prove an exploit worked or to move data out.
+  callbacks: ['webhook.site', 'requestbin', 'pipedream.net', 'interact.sh', 'oast.fun', 'oast.pro', 'oast.live', 'oast.site', 'oast.online', 'oast.me', 'burpcollaborator.net', 'oastify.com', 'dnslog.cn', 'ceye.io', 'ngrok-free.app', 'ngrok.io', 'ngrok.app', 'trycloudflare.com', 'serveo.net', 'loca.lt'],
+  // AI model services ARTEX can drive (DeepSeek, GLM, Grok, Claude, GPT, Kimi, Qwen, OpenRouter): a server calling these unexpectedly is a lead.
+  aiApis: ['api.deepseek.com', 'open.bigmodel.cn', 'api.z.ai', 'api.x.ai', 'api.anthropic.com', 'api.openai.com', 'openrouter.ai', 'api.moonshot.cn', 'api.moonshot.ai', 'dashscope.aliyuncs.com'],
   entraErrors: { AADSTS7000215: 'wrong client secret', AADSTS7000222: 'expired client secret' },
 };
 
@@ -67,9 +76,9 @@ export function parseLine(line) {
   const aad = line.match(/AADSTS\d{5,8}/g); if (aad) r.aadsts = aad;
   // Firewall logs: iptables/ufw "SRC=… DPT=…", Windows pfirewall.log "date time DROP TCP src dst sport dport", JSON dest_port.
   let fw = line.match(/SRC=(\d{1,3}(?:\.\d{1,3}){3}).*?DPT=(\d+)/);
-  if (fw) { r.ip = fw[1]; r.dport = +fw[2]; }
-  else if ((fw = line.match(/\b(?:DROP|ALLOW|BLOCK|DENY)\s+(?:TCP|UDP)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+\S+\s+\d+\s+(\d+)/i))) { r.ip = fw[1]; r.dport = +fw[2]; r.blocked = /DROP|BLOCK|DENY/i.test(line); }
-  else if (j) { const dp = j.dest_port ?? j.dst_port ?? j.dport ?? j['destination.port']; if (dp != null) r.dport = +dp; }
+  if (fw) { r.ip = fw[1]; r.dport = +fw[2]; const d = line.match(/DST=(\d{1,3}(?:\.\d{1,3}){3})/); if (d) r.dst = d[1]; }
+  else if ((fw = line.match(/\b(?:DROP|ALLOW|BLOCK|DENY)\s+(?:TCP|UDP)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+(\S+)\s+\d+\s+(\d+)/i))) { r.ip = fw[1]; r.dst = fw[2]; r.dport = +fw[3]; r.blocked = /DROP|BLOCK|DENY/i.test(line); }
+  else if (j) { const dp = j.dest_port ?? j.dst_port ?? j.dport ?? j['destination.port']; if (dp != null) r.dport = +dp; const dst = j.dest_ip ?? j.dst_ip ?? j.dst ?? j['destination.ip']; if (dst) r.dst = String(dst); }
   if (!r.signin && /\b(sign-?in|login|logon)\b/i.test(line)) { if (/\b(success|succeeded)\b/i.test(line)) r.signin = 'ok'; else if (/\b(fail|failure|failed|denied|invalid)\b/i.test(line) || r.aadsts) r.signin = 'fail'; }
   if (typeof r.ip === 'string') { const m = r.ip.match(IPV4); r.ip = m ? m[1] : r.ip; }
   return r;
@@ -93,6 +102,33 @@ export function rhythm(times) {
   return { cycles, pauses, share, flagged: cycles >= 3 && share >= 0.6 };
 }
 
+// Files ARTEX reads first for keys and hidden endpoints (ThreatDefence, SOCRadar).
+const HARVEST = /\.js\.map$|\/\.env(\.|$)|\/\.git\/|\/\.aws\/|\/config\.(json|js|ya?ml)$|\/(app|runtime|env)[-_]?config\.(json|js)$|\/actuator\/(env|heapdump|configprops)|\/server-status|\/phpinfo|\/swagger(-ui)?(\/|\.json|$)|\/api-docs|\/v[23]\/api-docs|\/\.DS_Store$|\/web\.config$|\/appsettings(\.\w+)?\.json$/i;
+// Entra ID / Azure audit activities used to keep access (Sophos, SOCRadar).
+const APP_CHANGE = /Add service principal credentials|Update application\s*[–-]\s*Certificates and secrets management|Add owner to (?:application|service principal)|Add member to role|Add app role assignment to service principal|Consent to application/i;
+const LATERAL_PORTS = new Set([135, 445, 3389, 5985, 5986]);
+const TOOL_UA = [['curl', /^curl\//i], ['wget', /^wget\//i], ['Python', /python-requests|python-urllib|aiohttp|httpx/i], ['Go', /Go-http-client/i], ['Nuclei', /nuclei/i], ['Nmap', /nmap/i], ['sqlmap', /sqlmap/i], ['ffuf', /\bffuf\b/i], ['gobuster', /gobuster/i], ['Nikto', /nikto/i], ['zgrab', /zgrab/i], ['Java', /^Java\//i], ['okhttp', /^okhttp/i], ['PowerShell', /WindowsPowerShell/i]];
+/** Scripting or attack-tool family of a user agent, or null for browsers and unknowns. */
+export function toolFamily(ua) { if (!ua) return null; for (const [n, re] of TOOL_UA) if (re.test(ua)) return n; return null; }
+/** Three or more tool families from one source inside any 60-second window → the families, else null. */
+export function mixedTools(list) {
+  const s = [...list].sort((a, b) => a[0] - b[0]); let j = 0;
+  for (let i = 0; i < s.length; i++) {
+    while (s[i][0] - s[j][0] > 60e3) j++;
+    const fams = new Set(s.slice(j, i + 1).map((x) => x[1]));
+    if (fams.size >= 3) return [...fams];
+  }
+  return null;
+}
+/** True when 20+ attempts arrive at near-identical intervals (coefficient of variation under 0.15). */
+export function machinePaced(times) {
+  if (times.length < 20) return false;
+  const t = [...times].sort((a, b) => a - b); const g = []; for (let i = 1; i < t.length; i++) g.push(t[i] - t[i - 1]);
+  const m = g.reduce((a, b) => a + b, 0) / g.length; if (m <= 0) return false;
+  const sd = Math.sqrt(g.reduce((a, b) => a + (b - m) ** 2, 0) / g.length);
+  return sd / m < 0.15;
+}
+
 /** Analyse pasted or uploaded logs. Returns { findings: [{lv,title,text}], stats }. */
 export function analyzeLogs(text, { maxLines = 200000, extraIps = {}, extraUAs = [] } = {}) {
   const badIps = { ...extraIps, ...ARTEX_IOCS.ips }; const uaList = [...ARTEX_IOCS.userAgents, ...extraUAs.filter(Boolean).map((u) => new RegExp(u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))];
@@ -101,6 +137,8 @@ export function analyzeLogs(text, { maxLines = 200000, extraIps = {}, extraUAs =
   const byIp = new Map(); const uaHits = new Map(); const ipHits = new Map(); const ja4Hits = new Set();
   const aad = { AADSTS7000215: 0, AADSTS7000222: 0 }; const failIps = new Map(); const okAfterFail = new Set(); const appsByIp = new Map();
   const consoleRefs = new Set();
+  const artifacts = new Set(); const callbacks = new Map(); const aiCalls = new Map(); const toolsByIp = new Map(); const harvest = new Map();
+  const dryRun = new Map(); const appChanges = new Map(); const fanOut = new Map();
   for (const line of lines) {
     const r = parseLine(line);
     const ip = r.ip && IPV4.test(r.ip) ? r.ip : null;
@@ -113,7 +151,18 @@ export function analyzeLogs(text, { maxLines = 200000, extraIps = {}, extraUAs =
     for (const c of r.aadsts || []) if (c in aad) aad[c]++;
     const authPath = r.path && /(login|signin|sign-in|auth|token|session|password|reset|oauth|wp-login|xmlrpc)/i.test(r.path);
     const failed = r.signin === 'fail' || (authPath && (r.status === 401 || r.status === 403 || r.status === 429));
-    if (ip && failed) { failIps.set(ip, (failIps.get(ip) || 0) + 1); byIp.get(ip).authFails++; }
+    if (ip && failed) { failIps.set(ip, (failIps.get(ip) || 0) + 1); const s = byIp.get(ip); s.authFails++; if (r.t != null) (s.failTimes ||= []).push(r.t); }
+    // Pre-emptive behaviour checks: these still work when operators swap servers and user agents.
+    const am = line.match(ARTEX_IOCS.hostArtifacts); if (am) artifacts.add(am[0]);
+    const low = line.toLowerCase();
+    for (const d of ARTEX_IOCS.callbacks) if (low.includes(d)) { callbacks.set(d, (callbacks.get(d) || 0) + 1); break; }
+    for (const d of ARTEX_IOCS.aiApis) if (low.includes(d)) { aiCalls.set(d, (aiCalls.get(d) || 0) + 1); break; }
+    const fam = ip && toolFamily(r.ua);
+    if (fam) { if (!toolsByIp.has(ip)) toolsByIp.set(ip, []); toolsByIp.get(ip).push([r.t ?? 0, fam]); }
+    if (ip && r.path && HARVEST.test(r.path)) { if (!harvest.has(ip)) harvest.set(ip, new Set()); harvest.get(ip).add(r.path.split('?')[0]); }
+    if (/DryRunOperation/.test(line)) { const who = (line.match(/"arn"\s*:\s*"([^"]+)"/) || [])[1] || ip || 'unknown identity'; dryRun.set(who, (dryRun.get(who) || 0) + 1); }
+    const ch = line.match(APP_CHANGE); if (ch) { const k = ch[0].replace(/\s+/g, ' '); appChanges.set(k, (appChanges.get(k) || 0) + 1); }
+    if (ip && r.dst && LATERAL_PORTS.has(r.dport)) { if (!fanOut.has(ip)) fanOut.set(ip, new Set()); fanOut.get(ip).add(r.dst); }
     if (ip && r.signin === 'ok' && failIps.get(ip) && (r.aadsts || aad.AADSTS7000215 + aad.AADSTS7000222 > 0)) okAfterFail.add(ip);
     if (ip && r.app) { if (!appsByIp.has(ip)) appsByIp.set(ip, new Set()); appsByIp.get(ip).add(String(r.app)); }
   }
@@ -132,9 +181,22 @@ export function analyzeLogs(text, { maxLines = 200000, extraIps = {}, extraUAs =
     if (s.authFails >= 20) {
       const span = s.times.length > 1 ? (Math.max(...s.times) - Math.min(...s.times)) / 60e3 : 1;
       const rate = s.authFails / Math.max(1, span);
-      add(rate >= 30 || s.accounts.size >= 10 ? 4 : 3, `Password attack from ${ip}`, `${s.authFails} failed sign-ins${s.accounts.size > 1 ? ` across ${s.accounts.size} accounts` : ''}, about ${Math.round(rate)} a minute. ARTEX-driven campaigns reached thousands of attempts a minute.`);
+      const steady = machinePaced(s.failTimes || []);
+      add(rate >= 30 || s.accounts.size >= 10 ? 4 : 3, `Password attack from ${ip}`, `${s.authFails} failed sign-ins${s.accounts.size > 1 ? ` across ${s.accounts.size} accounts` : ''}, about ${Math.round(rate)} a minute${steady ? ', at machine-steady intervals (a person typing is never that regular)' : ''}. ARTEX-driven campaigns reached thousands of attempts a minute. Rate-limit per account as well as per address, and require phishing-resistant MFA.`);
     }
   }
+  for (const a of artifacts) add(4, 'ARTEX working files on a computer', `${a} — ARTEX agents keep their files in “artx” folders. Isolate that computer, rebuild it and rotate every password and key it held.`);
+  for (const [d, n] of callbacks) add(3, `Callback or tunnel service: ${d}`, `${n} line${n > 1 ? 's' : ''} mention ${d}. Attack agents make servers call services like this to prove an exploit worked or to move data out. Find which server made the request, and block outbound traffic from servers to such services.`);
+  for (const [d, n] of aiCalls) add(2, `Server talking to an AI model service: ${d}`, `${n} line${n > 1 ? 's' : ''}. ARTEX runs on AI models such as DeepSeek, GLM, Grok, Claude and GPT. If no approved app on that server uses ${d}, treat it as an attack agent running inside your network.`);
+  for (const [ip, list] of toolsByIp) {
+    const fams = mixedTools(list);
+    if (fams) add(3, `Several attack tools from ${ip}`, `${fams.join(', ')} within one minute from the same address. One person doesn't switch tools that fast; an AI agent driving its toolbox does. Block the address.`);
+  }
+  for (const [ip, paths] of harvest) if (paths.size >= 5) add(3, `Config and source harvesting from ${ip}`, `${paths.size} attempts at files such as ${[...paths].slice(0, 4).join(', ')}. ARTEX starts by reading source maps, .env and config files for keys and hidden endpoints. Remove them from your live site.`);
+  for (const [who, n] of dryRun) if (n >= 20) add(3, 'Cloud permissions being mapped', `${n} AWS “DryRun” calls by ${who}. Agents test what a stolen key can do this way before using it. Disable that key and check where it came from.`);
+  const changes = [...appChanges.values()].reduce((a, b) => a + b, 0);
+  if (changes) add(changes >= 5 ? 3 : 2, 'App credentials, owners or roles changed', `${[...appChanges.entries()].map(([k, n]) => `${k} ×${n}`).join('; ')}. ARTEX operators add secrets to existing apps and give them roles to keep access. Confirm each change was made by your own administrators.`);
+  for (const [ip, dsts] of fanOut) if (dsts.size >= 10) add(4, `Lateral movement from ${ip}`, `${ip} reached ${dsts.size} machines on Windows remote-management, file-sharing or remote-desktop ports. That is how an intruder spreads after getting in. Isolate ${ip} now.`);
   if (aad.AADSTS7000215 + aad.AADSTS7000222 >= 5) add(3, 'Application secrets being guessed', `${aad.AADSTS7000215} wrong-secret (AADSTS7000215) and ${aad.AADSTS7000222} expired-secret (AADSTS7000222) errors. ARTEX agents test leaked app secrets this way.`);
   for (const ip of okAfterFail) add(4, `Secret guessed, then accepted: ${ip}`, 'Failed app sign-ins followed by a success from the same address. Treat the application credential as stolen: rotate it now and review what it accessed.');
   for (const [ip, apps] of appsByIp) if (apps.size >= 3) add(3, `One address signing in as ${apps.size} applications`, `${ip} used ${[...apps].slice(0, 5).join(', ')}${apps.size > 5 ? '…' : ''}. That is how stolen app credentials are tried in bulk.`);

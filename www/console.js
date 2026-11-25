@@ -146,6 +146,8 @@ $('#ax-sample').addEventListener('click', () => {
   const L = []; const fmt = (t) => new Date(t).toISOString(); let t = Date.UTC(2026, 10, 20, 10, 0, 0);
   for (let c = 0; c < 6; c++) { for (let k = 0; k < 4; k++) { L.push(JSON.stringify({ time: fmt(t), ip: '198.51.100.77', method: 'GET', path: '/api/v1/users/' + (c * 4 + k), status: 200, user_agent: 'Go-http-client/2.0' })); t += 800; } t += 27500; }
   L.push(JSON.stringify({ time: fmt(t), ip: '198.51.100.77', path: '/.git/config', status: 404, user_agent: 'norma/0.4' }));
+  ['/static/main.js.map', '/.env', '/config.json', '/actuator/env'].forEach((p, i) => L.push(JSON.stringify({ time: fmt(t + 1000 + i * 300), ip: '198.51.100.77', path: p, status: 404, user_agent: ['curl/8.4', 'python-requests/2.31', 'Go-http-client/1.1', 'curl/8.4'][i] })));
+  L.push(JSON.stringify({ time: fmt(t + 5000), ip: '10.0.0.5', method: 'GET', url: 'https://webhook.site/7f3c', status: 200 }));
   for (let i = 0; i < 60; i++) L.push(JSON.stringify({ time: fmt(t + i * 400), ip: '192.0.2.50', path: '/oauth/token', status: 401, userPrincipalName: `staff${i % 25}@example.com` }));
   $('#ax-log').value = L.join('\n'); $('#ax-file').value = ''; axShow($('#ax-log').value, 'Sample (synthetic)');
 });
@@ -157,8 +159,8 @@ $('#sec-run').addEventListener('click', () => {
 $('#ax-ioc-info').textContent = `Indicators from public threat reports up to ${ARTEX_IOCS.updated}: ${Object.keys(ARTEX_IOCS.ips).length} addresses, ${ARTEX_IOCS.ja4.length} TLS fingerprints, ${ARTEX_IOCS.dockerImages.length} booby-trapped Docker images and the ARTEX console port ${ARTEX_IOCS.consolePort}. Attackers change servers often, so a match is a lead, not proof.`;
 $('#ax-ioc-copy').addEventListener('click', () => copy([
   `# ARTEX indicators (BlackSwan, ${ARTEX_IOCS.updated})`, '# IP addresses', ...Object.entries(ARTEX_IOCS.ips).map(([ip, w]) => `${ip}  # ${w}`),
-  '# User agents', 'artex-enrich/1.0', 'norma/0.4', 'Mozilla/5.0 (compatible; ArtEx/1.0)', 'Mozilla/5.0 (compatible; infra-hunt/1.0)', 'verify-911-probe/1.0',
-  '# JA4 TLS fingerprints', ...ARTEX_IOCS.ja4, '# Docker images (backdoored)', ...ARTEX_IOCS.dockerImages, `# SHA-256 of backdoored /app/artex`, ARTEX_IOCS.binarySha256, `# Console port`, String(ARTEX_IOCS.consolePort)].join('\n'), 'Indicators copied.'));
+  '# User agents', 'artex-enrich/1.0', 'norma/0.4', 'Mozilla/5.0 (compatible; ArtEx/1.0)', 'Mozilla/5.0 (compatible; infra-hunt/1.0)', 'verify-911-probe/1.0', 'artex-pentest/1.0',
+  '# JA4 TLS fingerprints', ...ARTEX_IOCS.ja4, '# Docker images (backdoored)', ...ARTEX_IOCS.dockerImages, `# SHA-256 of backdoored /app/artex`, ARTEX_IOCS.binarySha256, `# Console port`, String(ARTEX_IOCS.consolePort), '# Host artifacts', 'C:\\ProgramData\\artx5v\\  and  artx* files in temp folders', '# Callback / tunnel services to block outbound from servers', ...ARTEX_IOCS.callbacks].join('\n'), 'Indicators copied.'));
 
 // ---------- password generator ----------
 let current = '', retired = 0, rotTimer = null, nextAt = 0;

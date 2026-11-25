@@ -185,7 +185,9 @@ jobs:
                    unknown publisher, choose More info -> Run anyway.
           Linux:   chmod +x BlackSwan-Linux.AppImage and run it, or unpack and run ./blackswan.
           Host agent: run from a terminal. First on a trusted network: --baseline
-                   Then: --artex (find ARTEX consoles), --logs FILE, --secrets FOLDER.
+                   Then: --artex (find ARTEX consoles and artx working files), --logs FILE
+                   (ARTEX traffic, tool mixing, config harvesting, callbacks, lateral movement),
+                   --secrets FOLDER.
           BlackSwan reads only and sends nothing anywhere.
           TXT
           sed -i 's/^          //' README-FIRST.txt

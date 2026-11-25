@@ -160,14 +160,26 @@ def check_remote_tools():
             alert("HIGH", f"Remote-access tool running: {tool}. If a caller asked you to install it, disconnect from the internet now")
 
 # ---------------------------------------------------------------- ARTEX Shield
-# Indicators from public reporting (Microsoft, Unit 42, CrowdStrike, Censys, BadByte, StepSecurity), up to 2026-11-12.
-ARTEX_UA = [re.compile(p, re.I) for p in (r"artex-enrich/\d", r"\bnorma/0\.\d", r"compatible;\s*artex/\d", r"compatible;\s*infra-hunt/\d", r"verify-911-probe/\d", r"\bartex\b")]
+# Indicators from public reporting (Microsoft, Unit 42, CrowdStrike, Censys, BadByte, StepSecurity, Sophos, Talos,
+# ThreatDefence, SOCRadar, Elastic, CERT-In), up to 2026-11-25. Mirrors www/artex.js.
+ARTEX_UA = [re.compile(p, re.I) for p in (r"artex-enrich/\d", r"\bnorma/0\.\d", r"compatible;\s*artex/\d", r"compatible;\s*infra-hunt/\d", r"verify-911-probe/\d", r"artex-pentest/\d", r"\bartex\b")]
 ARTEX_IPS = {"91.92.240.238", "85.11.168.45", "178.16.54.129", "31.77.229.35", "199.19.77.84", "65.87.223.26", "157.22.126.128",
-             "144.172.64.60", "144.172.64.99", "144.172.64.128", "38.244.50.120", "154.64.252.77", "183.1.65.106", "95.169.20.166", "203.190.1.60"}
+             "144.172.64.60", "144.172.64.99", "144.172.64.128", "38.244.50.120", "154.64.252.77", "183.1.65.106", "95.169.20.166", "203.190.1.60", "43.240.29.11"}
 ARTEX_JA4 = {"t13d3013h1_1d37bd780c83_8537cf56674e", "t13d3013h2_1d37bd780c83_8537cf56674e", "t13d3014h1_1d37bd780c83_5ae85263eb3b"}
 ARTEX_IMAGES = ("tomicdd/artex", "congdonglinux/artex")
 ARTEX_SHA256 = "d5070f52262effe216b840711343bff8f2787f39208d887d8dfd9c673f8d1573"
 ARTEX_PORT = 8787
+ARTEX_ARTIFACTS = re.compile(r"[\\/]ProgramData[\\/]artx5v\b|[\\/]Temp[\\/]artx[\w.-]*|[\\/]tmp[\\/]artx[\w.-]*", re.I)
+CALLBACKS = ("webhook.site", "requestbin", "pipedream.net", "interact.sh", "oast.fun", "oast.pro", "oast.live", "oast.site", "oast.online",
+             "oast.me", "burpcollaborator.net", "oastify.com", "dnslog.cn", "ceye.io", "ngrok-free.app", "ngrok.io", "ngrok.app",
+             "trycloudflare.com", "serveo.net", "loca.lt")
+AI_APIS = ("api.deepseek.com", "open.bigmodel.cn", "api.z.ai", "api.x.ai", "api.anthropic.com", "api.openai.com", "openrouter.ai",
+           "api.moonshot.cn", "api.moonshot.ai", "dashscope.aliyuncs.com")
+HARVEST = re.compile(r'"(?:GET|POST|HEAD) (\S*?(?:\.js\.map|/\.env|/\.git/|/\.aws/|/config\.(?:json|js|ya?ml)|/actuator/(?:env|heapdump|configprops)|/server-status|/phpinfo|/swagger|/api-docs|/web\.config|/appsettings[\w.]*\.json)\S*)', re.I)
+TOOL_UA = (("curl", r"\bcurl/"), ("wget", r"\bwget/"), ("Python", r"python-requests|python-urllib|aiohttp|httpx"), ("Go", r"Go-http-client"),
+           ("Nuclei", r"nuclei"), ("Nmap", r"nmap"), ("sqlmap", r"sqlmap"), ("ffuf", r"\bffuf\b"), ("gobuster", r"gobuster"),
+           ("Nikto", r"nikto"), ("zgrab", r"zgrab"), ("PowerShell", r"WindowsPowerShell"))
+LATERAL_PORTS = {135, 445, 3389, 5985, 5986}
 
 def local_ipv4():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -243,6 +255,14 @@ def check_artex_local():
                         alert("CRITICAL", f"Compose file uses a backdoored ARTEX image: {os.path.join(root, fn)}")
                 except Exception:
                     pass
+    temps = [os.environ.get("TEMP", ""), os.environ.get("TMP", ""), r"C:\Windows\Temp", r"C:\ProgramData", "/tmp", "/var/tmp"]
+    for d in {t for t in temps if t and os.path.isdir(t)}:
+        try:
+            for name in os.listdir(d):
+                if name.lower().startswith("artx"):
+                    alert("CRITICAL", f"ARTEX working files at {os.path.join(d, name)} - ARTEX agents keep their files in 'artx' folders. Isolate this machine, rebuild it and rotate every password and key it held")
+        except Exception:
+            pass
     procs = (run(["tasklist"]) if platform.system() == "Windows" else run(["ps", "-A", "-o", "comm="])).lower()
     if re.search(r"\bartex\b", procs):
         alert("HIGH", "An ARTEX process is running on this machine - confirm it is authorised and not reachable from the internet")
@@ -289,6 +309,7 @@ def rhythm(times):
 
 def check_artex_logs(paths):
     by_ip, fails, ports = {}, {}, {}
+    artifacts, callbacks, ai_calls, tools, harvest, fan = set(), {}, {}, {}, {}, {}
     ua_hits = ip_hits = 0
     n = 0
     for path in paths:
@@ -313,9 +334,32 @@ def check_artex_logs(paths):
                     alert("HIGH", f"ARTEX TLS fingerprint in {os.path.basename(path)}")
                 if ip and t is not None:
                     by_ip.setdefault(ip, []).append(t)
+                am = ARTEX_ARTIFACTS.search(line)
+                if am:
+                    artifacts.add(am.group(0))
+                low = line.lower()
+                for d in CALLBACKS:
+                    if d in low:
+                        callbacks[d] = callbacks.get(d, 0) + 1
+                        break
+                for d in AI_APIS:
+                    if d in low:
+                        ai_calls[d] = ai_calls.get(d, 0) + 1
+                        break
+                if ip:
+                    for fam, pat in TOOL_UA:
+                        if re.search(pat, line, re.I):
+                            tools.setdefault(ip, []).append((t or 0, fam))
+                            break
+                    hv = HARVEST.search(line)
+                    if hv:
+                        harvest.setdefault(ip, set()).add(hv.group(1).split("?")[0])
                 fw = re.search(r"SRC=(\d{1,3}(?:\.\d{1,3}){3}).*?DPT=(\d+)", line) or re.search(r"\b(?:DROP|ALLOW|BLOCK|DENY)\s+(?:TCP|UDP)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+\S+\s+\d+\s+(\d+)", line, re.I)
                 if fw:
                     ports.setdefault(fw.group(1), set()).add(int(fw.group(2)))
+                    dst = re.search(r"DST=(\d{1,3}(?:\.\d{1,3}){3})", line) or re.search(r"\b(?:DROP|ALLOW|BLOCK|DENY)\s+(?:TCP|UDP)\s+\S+\s+(\S+)", line, re.I)
+                    if dst and int(fw.group(2)) in LATERAL_PORTS:
+                        fan.setdefault(fw.group(1), set()).add(dst.group(1))
                 if ip and re.search(r'(login|signin|auth|token|password|reset|oauth)\S*\s+HTTP/[\d.]+"\s+(401|403|429)\b|AADSTS7000215|AADSTS7000222|"status"\s*:\s*(401|403|429)', line, re.I):
                     fails[ip] = fails.get(ip, 0) + 1
     if ua_hits > 5 or ip_hits > 5:
@@ -330,6 +374,28 @@ def check_artex_logs(paths):
     for ip, c in fails.items():
         if c >= 20:
             alert("HIGH", f"Password / secret guessing from {ip}: {c} failed sign-ins")
+    for a in sorted(artifacts):
+        alert("CRITICAL", f"ARTEX working files on a computer: {a}. Isolate it, rebuild it and rotate every key it held")
+    for d, c in callbacks.items():
+        alert("HIGH", f"Callback or tunnel service {d} in {c} lines - attack agents use these to confirm exploits and move data out. Find the server that called it")
+    for d, c in ai_calls.items():
+        alert("MEDIUM", f"Server talking to AI model service {d} ({c} lines) - if no approved app uses it, an attack agent may be running inside")
+    for ip, lst in tools.items():
+        lst.sort()
+        j = 0
+        for i in range(len(lst)):
+            while lst[i][0] - lst[j][0] > 60:
+                j += 1
+            fams = {f for _, f in lst[j:i + 1]}
+            if len(fams) >= 3:
+                alert("HIGH", f"Several attack tools from {ip} within one minute: {', '.join(sorted(fams))} - typical of an AI agent driving its toolbox")
+                break
+    for ip, paths in harvest.items():
+        if len(paths) >= 5:
+            alert("HIGH", f"Config and source-map harvesting from {ip}: {len(paths)} files such as {', '.join(sorted(paths)[:4])}. Remove them from the live site")
+    for ip, dsts in fan.items():
+        if len(dsts) >= 10:
+            alert("CRITICAL", f"Lateral movement from {ip}: reached {len(dsts)} machines on remote-management, file-sharing or remote-desktop ports. Isolate it now")
     print(f"Checked {n} log lines from {len(by_ip)} addresses for ARTEX traces")
 
 SECRET_PATTERNS = [
