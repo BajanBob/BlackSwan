@@ -184,7 +184,8 @@ jobs:
           Windows: run BlackSwan.exe (or BlackSwan-Windows-portable.exe). If Windows warns about an
                    unknown publisher, choose More info -> Run anyway.
           Linux:   chmod +x BlackSwan-Linux.AppImage and run it, or unpack and run ./blackswan.
-          Host agent: run from a terminal. First on a trusted network: --baseline
+          Host agent: double-click it and choose from the menu (the window stays open until you press Enter).
+                   Or run it from a terminal. First on a trusted network: --baseline
                    Then: --artex (find ARTEX consoles and artx working files), --logs FILE
                    (ARTEX traffic, tool mixing, config harvesting, callbacks, lateral movement),
                    --secrets FOLDER.

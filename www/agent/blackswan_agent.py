@@ -561,5 +561,63 @@ def main():
     print(f"\n{len(alerts)} findings, {len(worst)} high/critical. Report: {REPORT}")
     sys.exit(2 if worst else 0)
 
+MENU = """
+BlackSwan host agent - read-only security checks for this computer
+  1  Check this computer (do this first, on a network you trust: it also saves a baseline)
+  2  Check this computer and scan my network for ARTEX attack consoles
+  3  Check log files for ARTEX and other attack traffic
+  4  Scan a folder for leaked passwords, keys and tokens
+  Q  Quit
+"""
+
+def interactive():
+    """Double-clicked (no arguments): show a menu instead of running and closing at once."""
+    print(MENU)
+    choice = input("Choose 1-4 and press Enter: ").strip().lower()
+    if choice in ("q", ""):
+        return False
+    extra = {"1": [] if os.path.exists(BASE) else ["--baseline"], "2": ["--artex"]}.get(choice)
+    if choice == "3":
+        paths = input("Drag log files here (or type their paths), then press Enter: ").strip()
+        extra = ["--logs"] + [x.strip('"') for x in re.findall(r'"[^"]+"|\S+', paths)]
+    elif choice == "4":
+        folder = input("Drag a folder here (or type its path), then press Enter: ").strip().strip('"')
+        extra = ["--secrets", folder or "."]
+    if extra is None:
+        print("Please choose 1, 2, 3 or 4.")
+        return True
+    sys.argv[1:] = extra
+    return True
+
+def pause():
+    try:
+        input("\nPress Enter to close this window...")
+    except Exception:
+        pass
+
 if __name__ == "__main__":
-    main()
+    double_clicked = len(sys.argv) == 1 and sys.stdin is not None and sys.stdin.isatty()
+    code = 0
+    try:
+        if double_clicked:
+            while True:
+                if not interactive():
+                    break
+                if len(sys.argv) > 1:
+                    try:
+                        main()
+                    except SystemExit as e:
+                        code = e.code or 0
+                    print("\nWhat the levels mean: CRITICAL and HIGH need action now; MEDIUM and LOW are worth checking.")
+                    pause()
+                    break
+        else:
+            main()
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        print(f"\nBlackSwan agent stopped with an error: {e}")
+        code = 1
+        if double_clicked:
+            pause()
+    sys.exit(code)
