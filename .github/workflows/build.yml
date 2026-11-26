@@ -8,6 +8,11 @@ on:
     branches: [main]
     paths-ignore: ['www/intel/**', 'matlab/**', '**.md']
   workflow_dispatch:
+    inputs:
+      demo_key:
+        description: 'Demo build: a BSW1 licence key to build into the Android and desktop apps (leave empty for a normal build)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -32,6 +37,11 @@ jobs:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Built-in demo licence (demo builds only)
+        if: ${{ inputs.demo_key != '' && inputs.demo_key != null }}
+        shell: bash
+        env: { DEMO_KEY: '${{ inputs.demo_key }}' }
+        run: node -e "const f='www/edition.json',e=JSON.parse(require('fs').readFileSync(f,'utf8'));e.demoKey=process.env.DEMO_KEY;require('fs').writeFileSync(f,JSON.stringify(e,null,2))"
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - uses: actions/setup-java@v4
@@ -85,6 +95,7 @@ jobs:
 
   ios:
     needs: test
+    if: ${{ inputs.demo_key == '' || inputs.demo_key == null }}
     runs-on: macos-latest
     defaults: { run: { working-directory: . } }
     steps:
@@ -114,6 +125,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Built-in demo licence (demo builds only)
+        if: ${{ inputs.demo_key != '' && inputs.demo_key != null }}
+        shell: bash
+        env: { DEMO_KEY: '${{ inputs.demo_key }}' }
+        run: node -e "const f='www/edition.json',e=JSON.parse(require('fs').readFileSync(f,'utf8'));e.demoKey=process.env.DEMO_KEY;require('fs').writeFileSync(f,JSON.stringify(e,null,2))"
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - name: Prepare the desktop app
@@ -146,6 +162,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: { os: [windows-latest, ubuntu-latest] }
+    if: ${{ inputs.demo_key == '' || inputs.demo_key == null }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -169,7 +186,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: v
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+        env: { DEMO: "${{ inputs.demo_key != '' && inputs.demo_key != null }}" }
+        run: |
+          v=$(node -p "require('./package.json').version")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [ "$DEMO" = "true" ]; then echo "tag=v$v-demo" >> "$GITHUB_OUTPUT"; echo "name=BlackSwan $v demo (Business features built in)" >> "$GITHUB_OUTPUT"; echo "demo=true" >> "$GITHUB_OUTPUT"
+          else echo "tag=v$v" >> "$GITHUB_OUTPUT"; echo "name=BlackSwan $v" >> "$GITHUB_OUTPUT"; echo "demo=false" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/download-artifact@v4
         with: { path: artifacts, pattern: 'bs-*', merge-multiple: true }
       - name: Package zip files for every platform
@@ -198,14 +220,20 @@ jobs:
           z BlackSwan-Agent-Linux.zip blackswan-agent-linux
           z BlackSwan-Windows-Portable.zip BlackSwan-Windows-portable.exe blackswan-agent-windows.exe
           rm README-FIRST.txt
+          if [ "${{ steps.v.outputs.demo }}" = "true" ]; then
+            for f in *; do case "$f" in *.tar.gz) n="${f%.tar.gz}-Demo.tar.gz";; *.*) n="${f%.*}-Demo.${f##*.}";; *) n="$f-Demo";; esac; mv "$f" "$n"; done
+          fi
           ls -la
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.v.outputs.version }}
+          tag_name: ${{ steps.v.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: BlackSwan ${{ steps.v.outputs.version }}
+          name: ${{ steps.v.outputs.name }}
           make_latest: false
+          prerelease: ${{ steps.v.outputs.demo == 'true' }}
           body: |
+            ${{ steps.v.outputs.demo == 'true' && '**Demo build:** the Android and desktop apps (files ending in -Demo) have a time-limited Business licence built in, so every feature including ARTEX Shield is switched on until the demo key expires; after that they fall back to Free unless a licence key is entered.' || '' }}
+
             **BlackSwan: alert and defence system.** Phone security check-up (from GuardYourPhone), phishing link and scam-message scanner, intrusion monitor for fake towers, evil-twin Wi-Fi and man-in-the-middle attacks, password generator with fingerprint vault and anti brute-force lock, scam library and a desktop host agent. It reads only; it sends nothing anywhere.
 
             Design: **Kammie Holder** · Software: BajanBob · Built on GuardYourPhone.

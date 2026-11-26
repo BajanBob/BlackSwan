@@ -48,7 +48,9 @@ export async function loadPlan() {
   try { const c = await (await fetch('edition.json', { cache: 'no-store' })).json(); CFG = { ...CFG, ...c }; } catch { /* defaults */ }
   const saved = store.get('licence', null);
   const lic = saved ? await verifyLicence(saved) : null;
+  const demo = !lic && CFG.demoKey ? await verifyLicence(CFG.demoKey) : null; // demo builds carry a built-in, time-limited key
   if (lic && (!lic.expires || Date.parse(lic.expires) > Date.now())) current = { ...lic, source: 'licence' };
+  else if (demo && demo.expires && Date.parse(demo.expires) > Date.now()) current = { ...demo, source: 'demo' };
   else {
     const t = store.get('trialStart', 0);
     current = t && Date.now() - t < TRIAL_DAYS * 864e5 ? { plan: 'plus', source: 'trial', expires: new Date(t + TRIAL_DAYS * 864e5).toISOString() } : { plan: 'free' };

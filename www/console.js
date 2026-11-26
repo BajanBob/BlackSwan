@@ -491,8 +491,9 @@ function applyLocks() {
 document.addEventListener('click', (e) => { if (e.target.closest('[data-goto-plans]')) { show('plans'); window.scrollTo(0, 0); } });
 function renderPlans() {
   const p = plan(); const cfg = config();
-  $('#plan-badge').textContent = PLANS[p.plan].name + (p.source === 'trial' ? ' trial' : '');
+  $('#plan-badge').textContent = PLANS[p.plan].name + (p.source === 'trial' ? ' trial' : p.source === 'demo' ? ' demo' : '');
   $('#plan-info').textContent = p.source === 'licence' ? `Licensed to ${p.name || 'you'}${p.devices > 1 ? ` · ${p.devices} devices` : ''}${p.expires ? ` · renews or ends ${new Date(p.expires).toLocaleDateString()}` : ''}.`
+    : p.source === 'demo' ? `Demo edition: ${PLANS[p.plan].name} features are switched on until ${new Date(p.expires).toLocaleDateString()}. Enter a licence key to keep them after that.`
     : p.source === 'trial' ? `Your Plus trial ends ${new Date(p.expires).toLocaleDateString()}.`
       : p.expired ? `Your ${PLANS[p.expired.plan].name} licence ended ${new Date(p.expired.expires).toLocaleDateString()}. Renew to switch Plus features back on.` : 'You’re on BlackSwan Free. Safety features stay free forever.';
   $('#plan-trial').hidden = trialUsed() || p.plan !== 'free';
