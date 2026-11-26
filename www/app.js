@@ -41,7 +41,7 @@ const EX = {
     { package: 'com.fastcleaner.boost', name: 'Fast Cleaner Boost', installer: 'com.google.android.packageinstaller', accessibility: true, notificationListener: false, deviceAdmin: false, permissions: ['READ_SMS', 'SYSTEM_ALERT_WINDOW', 'RECORD_AUDIO'], installed: Date.now() - 20 * DAY },
     { package: 'com.whatsapp', name: 'WhatsApp', installer: 'com.android.vending', permissions: ['CAMERA', 'RECORD_AUDIO', 'READ_CONTACTS'], installed: Date.now() - 400 * DAY },
     { package: 'com.google.android.gms', name: 'Google Play services', installer: '', system: true, deviceAdmin: true, permissions: [] },
-    { package: 'com.systemservice', name: 'System Service', installer: '', notificationListener: true, permissions: ['READ_SMS', 'RECORD_AUDIO', 'ACCESS_BACKGROUND_LOCATION'], installed: Date.now() - 3 * DAY },
+    { package: 'com.systemservice', name: 'Example spy app (sample data)', installer: '', notificationListener: true, permissions: ['READ_SMS', 'RECORD_AUDIO', 'ACCESS_BACKGROUND_LOCATION'], installed: Date.now() - 3 * DAY },
   ] },
   network: { operator: 'Example Mobile', simOperator: 'Example Mobile', country: '', data: '4G', voice: '4G', roaming: false, phonePermission: true, locationPermission: true, cells: [{ registered: true, gen: '4G', cell: 21345678, area: 1201, dbm: -96 }, { registered: false, gen: '2G', cell: 4410, area: 77, dbm: -88 }] },
 };
@@ -134,7 +134,7 @@ function assess({ device: d, security: s, apps }, net) {
     if (s) for (const p of protectFindings(s, d)) { if (p[0] === 'risk') add(...p); else score -= p[4] || 0; }
     const flagged = flagApps(apps);
     const spies = flagged.filter((a) => a.level >= 3);
-    if (spies.length) { add('risk', `Spy app or malware found: ${spies.map((a) => a.name).join(', ')}`, 'Matches BlackSwan’s list of known stalkerware or malware. If you didn’t install it, someone may be watching this phone: remove it, change your passwords from another device, and get help if you feel unsafe.', null, 40); for (const a of spies) raise(4, `Spy app or malware: ${a.name}`, a.why.join('; '), 'phone'); }
+    if (spies.length) { add('risk', `Spy app or malware found: ${spies.map((a) => a.name).join(', ')}`, 'Matches BlackSwan’s list of known stalkerware or malware. If you didn’t install it, someone may be watching this phone: remove it, change your passwords from another device, and get help if you feel unsafe.', null, 40); if (!demo) for (const a of spies) raise(4, `Spy app or malware: ${a.name}`, a.why.join('; '), 'phone'); }
     const high = flagged.filter((a) => a.level >= 2);
     if (high.length) add('risk', `${high.length} app${high.length === 1 ? '' : 's'} with powerful access to check`, `${high.map((a) => a.name).join(', ')}. See “Apps with powerful access” below.`, null, Math.min(30, high.length * 15));
     else if (flagged.length) add('warn', `${flagged.length} app${flagged.length === 1 ? '' : 's'} worth a look`, 'See “Apps with powerful access” below.', null, Math.min(10, flagged.length * 3));
@@ -274,7 +274,8 @@ const openSettings = (to, pkg) => (demo ? toast('On your phone this opens Settin
 let last = null, lastNet = null;
 function render(data, net) {
   const { findings, score } = assess(data, net);
-  for (const x of findings) if (x.level === 'risk') raise(2, x.title, x.text, 'phone');
+  // Example results (browser and desktop preview) never go into the alert log: only a real phone check does.
+  if (!demo) for (const x of findings) if (x.level === 'risk') raise(2, x.title, x.text, 'phone');
   const ring = $('#ring');
   ring.style.setProperty('--p', score);
   ring.style.setProperty('--c', score >= 80 ? 'var(--ok)' : score >= 55 ? 'var(--warn)' : 'var(--risk)');
