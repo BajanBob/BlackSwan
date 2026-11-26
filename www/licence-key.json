@@ -1,1 +1,9 @@
-{ "about": "Public key that checks BlackSwan licence keys. Replace it by running: node scripts/licence.mjs init (keeps the private key on your computer).", "jwk": null }
+{
+  "about": "Public key that checks BlackSwan licence keys (safe to publish).",
+  "jwk": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "-eb0f0c9OsAuXA7MDAb34n6qyV5ovAbal9T2GT4IHPY",
+    "y": "34XKaY0AM_lhwHpRILSNKOHjW0tYVFW8YpL-ZGvWml0"
+  }
+}
