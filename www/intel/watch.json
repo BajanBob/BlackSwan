@@ -2,6 +2,32 @@
   "about": "BlackSwan curated watch list: new threat actors, AI attack tools and campaigns. Updated by BlackSwan's daily research agent and by hand. Each item: date (YYYY-MM-DD), level (2 caution, 3 danger, 4 critical), title, actor, summary, source (URL), iocs {ips, domains, userAgents}.",
   "items": [
     {
+      "date": "2026-11-26",
+      "level": 3,
+      "title": "Thousands of exposed AI hacking servers now probing the internet",
+      "actor": "Operators of ARTEX, AntiFox, PentestCode and PentAGI instances",
+      "summary": "Shadowserver counts about 4,200 internet-facing AI attack-framework servers, with over 80 actively probing VPNs, web apps and developer tools such as Jenkins and hunting for .env secret files. Patch internet-facing systems, keep secrets out of web folders and rate-limit repeated probes.",
+      "source": "https://cybersecuritynews.com/4000-servers-running-ai-hacking-agents-are-exposed/",
+      "iocs": {
+        "ips": [],
+        "domains": [],
+        "userAgents": []
+      }
+    },
+    {
+      "date": "2026-11-25",
+      "level": 2,
+      "title": "1Password breach: expect convincing phishing using real account details",
+      "actor": "Unknown",
+      "summary": "An attacker used a stolen employee GitHub account to copy 1Password source code and some customer account records (names of accounts, sign-in times, setup and recovery tokens). Vaults and passwords were not taken. Ignore emails asking for your password or Secret Key; open the official app instead of clicking links.",
+      "source": "https://cybersecuritynews.com/1password-hacked-2/",
+      "iocs": {
+        "ips": [],
+        "domains": [],
+        "userAgents": []
+      }
+    },
+    {
       "date": "2026-11-24",
       "level": 3,
       "title": "GT13 campaign breaks into Check Point firewall management servers",
@@ -28,6 +54,24 @@
       }
     },
     {
+      "date": "2026-11-24",
+      "level": 3,
+      "title": "Unit 42: autonomous AI agents run full intrusions after web-shell break-ins",
+      "actor": "Unattributed (infrastructure linked to CyberStrikeAI)",
+      "summary": "In over 10 campaigns, attackers planted web shells on vulnerable web apps, then let AI agents explore, steal passwords, gain admin rights and spread to cloud and partner systems, running hundreds of commands an hour. Patch public web apps, enforce MFA and sign-in limits, and watch for sudden bursts of commands.",
+      "source": "https://unit42.paloaltonetworks.com/autonomous-ai-agent-threat-campaigns/",
+      "iocs": {
+        "ips": [
+          "150.242.254.199",
+          "204.194.54.240",
+          "206.123.152.217",
+          "38.253.224.12"
+        ],
+        "domains": [],
+        "userAgents": []
+      }
+    },
+    {
       "date": "2026-11-23",
       "level": 3,
       "title": "CERT-In: AI-assisted attacks trigger unauthorised payments in India",
@@ -38,6 +82,19 @@
         "ips": [
           "43.240.29.11"
         ],
+        "domains": [],
+        "userAgents": []
+      }
+    },
+    {
+      "date": "2026-11-18",
+      "level": 3,
+      "title": "Russian Cold Relic uses MFA fatigue, then poses as victims to breach partners",
+      "actor": "Cold Relic (COLDRIVER, Star Blizzard)",
+      "summary": "Russian spies tired out a Google Workspace admin with repeated MFA prompts, copied the whole company's data, then emailed a partner organisation pretending to be a staff member. Never approve sign-in prompts you did not start, and check unusual requests from known contacts by phone.",
+      "source": "https://thehackernews.com/2026/11/russian-cold-relic-hackers-use-stolen.html",
+      "iocs": {
+        "ips": [],
         "domains": [],
         "userAgents": []
       }
@@ -75,6 +132,22 @@
           "Mozilla/5.0 (compatible; infra-hunt/1.0)",
           "verify-911-probe/1.0"
         ]
+      }
+    },
+    {
+      "date": "2026-11-12",
+      "level": 3,
+      "title": "China-linked group uses Cairn AI framework for autonomous espionage",
+      "actor": "CL-STA-1238 (China-nexus)",
+      "summary": "Attackers drove the open-source Cairn AI pentest framework against at least 19 organisations, including semiconductor suppliers, US defence and policy groups and human-rights organisations, getting in at 10. Patch internet-facing software, reduce exposed services and protect accounts with strong MFA.",
+      "source": "https://unit42.paloaltonetworks.com/cairn-framework-ai-autonomous-attacks/",
+      "iocs": {
+        "ips": [
+          "154.44.31.4",
+          "82.29.129.54"
+        ],
+        "domains": [],
+        "userAgents": []
       }
     },
     {
